@@ -1,0 +1,59 @@
+Instruction how to flash eMMC of BPI-R4 (Based on https://forum.openwrt.org/t/a-new-dual-10g-router-based-on-filogic-880-banana-pi-bpi-r4/163861/134?page=4
+)
+
+My router hardware config is:
+- MT7922
+- BE200
+- Fibocom FM350-GL
+
+
+1. Go to the page https://firmware-selector.openwrt.org/?version=SNAPSHOT&target=mediatek%2Ffilogic&id=bananapi_bpi-r4
+And generate custom image for packages as below (you can pick up your config and packages)
+
+base-files busybox ca-bundle dnsmasq dropbear e2fsprogs f2fsck firewall4 fitblk fstools kmod-crypto-hw-safexcel kmod-eeprom-at24 kmod-gpio-button-hotplug kmod-hwmon-pwmfan kmod-i2c-mux-pca954x kmod-leds-gpio kmod-mt7915e kmod-mt7996-firmware kmod-nft-offload kmod-phy-aquantia kmod-rtc-pcf8563 kmod-sfp kmod-usb3 libc libgcc libustream-mbedtls logd luci mkf2fs mtd netifd nftables odhcp6c odhcpd-ipv6only opkg ppp ppp-mod-pppoe procd procd-seccomp procd-ujail uboot-envtools uci uclient-fetch urandom-seed urngd wpad-basic-mbedtls kmod-usb-net-rndis kmod-usb-net-cdc-ether kmod-usb-net-huawei-cdc-ncm luci-proto-ncm kmod-usb-net-qmi-wwan uqmi luci-proto-qmi kmod-usb-serial-option picocom usb-modeswitch kmod-mtd-rw base-files busybox ca-bundle dnsmasq dropbear e2fsprogs f2fsck firewall4 fitblk fstools kmod-crypto-hw-safexcel kmod-eeprom-at24 kmod-gpio-button-hotplug kmod-hwmon-pwmfan kmod-i2c-mux-pca954x kmod-leds-gpio kmod-mt7915e kmod-mt7996-firmware kmod-nft-offload kmod-phy-aquantia kmod-rtc-pcf8563 kmod-sfp kmod-usb3 libc libgcc libustream-mbedtls logd luci mkf2fs mtd netifd nftables odhcp6c odhcpd-ipv6only opkg ppp ppp-mod-pppoe procd procd-seccomp procd-ujail uboot-envtools uci uclient-fetch urandom-seed urngd wpad-basic-mbedtls pciutils usbutils kmod-nvme lsblk parted kmod-i2c-gpio kmod-leds-gpio kmod-mt7922-firmware chat comgt kmod-mii kmod-usb-net kmod-usb-serial lsblk kmod-usb-acm kmod-usb-net-cdc-ncm nano kmod-mt7921e kmod-mt7921-common kmod-crypto-aead kmod-crypto-hmac kmod-crypto-sha512 kmod-crypto-rng kmod-crypto-gf128 kmod-mac80211 kmod-ptp iwlwifi-firmware-be200 kmod-iwlwifi kmod-iio-mt6577-auxadc i2c-tools libi2c
+
+Download all files: sysupgrade, snand-preloader.bin, snand-bl31-uboot.fip, sdcard.img.gz, emmc-preloader.bin and emmc-bl31-uboot.fip.
+Download also immortalwrt-mediatek-filogic-bananapi_bpi-r3-mini-emmc-gpt.bin from https://firmware-selector.immortalwrt.org/?version=SNAPSHOT&target=mediatek%2Ffilogic&id=bananapi_bpi-r3-mini.
+
+Or take all from https://drive.google.com/drive/folders/1BvJwuJtkOaVbjPlBX9Hs9I5poaV3Eh8O?usp=sharing
+
+
+
+2. Write sdcard.img.gz to SD card with Balena or another tool, jumpers DOWN DOWN and boot BPI-R4 from the sd card.
+
+3. Copy files from point 1 to the router
+
+fstab:
+/dev/nvme0n1p1  /nvme   ext4    defaults        0       0
+for my NVME disk
+mkdir /nvme
+mount -a
+
+4. Run command: fw_setenv bootcmd "run ubi_init ; env default bootcmd ; saveenv ; reset"; reboot
+
+5. Boot from NAND , jumpers UP DOWN
+
+6. Go to the place with uploaded files and perform:
+Write new GPT table:
+dd if=immortalwrt-mediatek-filogic-bananapi_bpi-r3-mini-emmc-gpt.bin of=/dev/mmcblk0 bs=512 seek=0 count=34 conv=fsync
+Erase and write new BL2:
+echo 0 > /sys/block/mmcblk0boot0/force_ro
+dd if=/dev/zero of=/dev/mmcblk0boot0 bs=512 count=8192 conv=fsync
+dd if=openwrt-99ea7b6a51a8-mediatek-filogic-bananapi_bpi-r4-emmc-preloader.bin of=/dev/mmcblk0boot0 bs=512 conv=fsync
+Erase and write new FIP:
+dd if=/dev/zero of=/dev/mmcblk0 bs=512 seek=13312 count=8192 conv=fsync
+dd if=openwrt-99ea7b6a51a8-mediatek-filogic-bananapi_bpi-r4-emmc-bl31-uboot.fip of=/dev/mmcblk0 bs=512 seek=13312 conv=fsync
+Write the eMMC recovery boot partition
+dd if=/dev/zero of=/dev/mmcblk0 bs=512 seek=24576 count=8192 conv=fsync
+dd if=openwrt-mediatek-filogic-bananapi_bpi-r4-initramfs-recovery.itb of=/dev/mmcblk0 bs=512 seek=24576 conv=fsync
+Write the eMMC production boot partition
+dd if=/dev/zero of=/dev/mmcblk0 bs=512 seek=131072 count=8192 conv=fsync
+dd if=openwrt-99ea7b6a51a8-mediatek-filogic-bananapi_bpi-r4-squashfs-sysupgrade.itb of=/dev/mmcblk0 bs=512 seek=131072 conv=fsync 
+
+!!!
+Sometimes befpre last step  could not work so do it from menu pickup option 7 install bootloader, system and recovery in eMMC
+!!!
+
+Power off the bpi-r4,
+Switch the bpi-r4 to eMMC boot jumpers DOWN UP, remove SD card, and power it on.
+
