@@ -1,0 +1,408 @@
+https://forum.banana-pi.org/t/i2c-anyone-i-didnt-get-it-running/4360/10
+
+
+kmod-i2c-gpio-custom i2c-core and i2c-gpio needed for new image!
+
+
+GPIO: https://docs.banana-pi.org/en/BPI-R4/BananaPi_BPI-R4
+
+1=3,3V,3=GPIO18/I2C_1_SDA,5=GPIO17/I2C_1_SCL,6=gnd, 2=5V, 4=5V, 9=gnd
+
+in BananaPi BPI-R4 will be present at i2c1: i2c@11004000
+
+Solution to enable I2C:
+
+1. In your image repo located mt7988a.dtsi (repo_dir/target/linux/mediatek/files-xxxxx/arch/arm64/boot/dts/mediatek/)
+and change in the section:
+
+i2c1: i2c@11004000 {
+compatible = "mediatek,mt7988-i2c",
+"mediatek,mt7981-i2c";
+reg = <0 0x11004000 0 0x1000>,
+<0 0x10217100 0 0x80>;
+...
+status = "okay"; >>> was "disabled"
+};
+
+and compile new image.
+
+2. your i2c devices should be visibe
+
+ i2cdetect -r 1
+ i2cdetect -y 1
+
+
+3. OLED scripts (0x3C address) to send basic info to OLED screen and turn it off
+Put all scripts in the same location - for me: /nvme/work/oled
+and give execution rights
+
+oled_info.sh: (main script)
+#!/bin/bash
+
+#Preparing file with value to displayed on OLED
+cd /nvme/work/oled
+./info.sh 
+
+#Send data to OLED
+./oled128x64 /dev/i2c-1
+sleep 30
+rm info2.log
+#Clear OLED display
+./oled128x64 /dev/i2c-1
+
+
+info.sh:
+#!/bin/bash
+
+STATUS_UP=UP
+
+cd /nvme/work/oled
+rm ./info2.log
+echo "LAN: `ifconfig br-lan |grep "inet " |awk '{print $2}'`" > info2.log
+echo "WAN: `ifconfig eth3 |grep "inet " |awk '{print $2}'`" >> info2.log
+SSID=`iwinfo  |grep "ESSID" | awk '{print $3}'`
+UPDOWN=`iwinfo  |grep "Bit Rate" | awk '{print $3}'`
+wynik=$(printf "%.0f" $UPDOWN)
+if [[ "$wynik" -gt "0" ]] 
+	then STATUS=UP
+	else STATUS=DOWN
+fi
+echo "WIFI: $SSID $STATUS" >> info2.log
+sed -i 's/addr://g' ./info2.log
+
+
+
+
+=====================Some other notes============================
+
+apt install python3 python3-pip python3.11-venv
+
+python3 -m venv venv
+. venv/bin/activate
+pip3 install luma-oled #install into venv
+
+#next commands for creating wheel files (in a arm64 chroot) to avoid install compile-tools on router
+pip install wheel #needed for RPi.GPIO
+pip wheel --wheel-dir tmp luma-oled
+
+i2cdetect -y -r 2
+
+
+(.venv_display) frank@bpi-r3:~$ python3                                                                                              
+Python 3.9.2 (default, Feb 28 2021, 17:03:44)                                                                                        
+[GCC 10.2.1 20210110] on linux                                                                                                       
+Type "help", "copyright", "credits" or "license" for more information.                                                               
+>>> from luma.core.interface.serial import i2c                                                                                       
+>>> from luma.core.render import canvas                                                                                              
+>>> from luma.oled.device import ssd1306                                                                                             
+>>> serial = i2c(port=2, address=0x3C)                                                                                               
+>>> device = ssd1306(serial)                                                                                                         
+>>> with canvas(device) as draw:                                                                                                     
+...     draw.rectangle(device.bounding_box, outline="white", fill="black")                                                           
+...     draw.text((30, 40), "Hello World", fill="white")
+
+=============oled ==========================
+- read data from signalK through API (info.sh)
+- format / filter data and prepare log file to display (info.log -> info2.log)
+- oled128x64 reads info2.log file and it sends to OLED screen , next after 30 s, it turns it off (main program: sensors.sh)
+
+To clear OLED display, please use: ./oled128x64clear /dev/i2c-2 command.
+
+oled128x64 and oled128x64clear were rewritten and based on https://forum.armbian.com/topic/3747-sh1106-128x64-ssd1306-i2c-oled-display-library/
+
+=============oled 2=========================
+- read data from signalK through API (info.sh)
+- format / filter data and prepare log file to display (info.log -> info2.log)
+- oled128x32.py reads info2.log file and it sends the line to OLED screen one by one every 15 s and finally it turns the display off (main program: sensors2.sh)
+
+Based on https://www.waveshare.com/wiki/0.91inch_OLED_Module. 
+Please also go there to download Font.ttf which is needed here. Probably it is possible to get ttf fonts from windows and use it also here changing name in oled128x32.py but not tested.
+In the file SSD1306.py please adjust too I2C bus number according to your configuration: -> i2c-2  -> SMBus(2) 
+
+============================================
+
+Adafruit
+
+sudo apt-get update -y
+sudo apt-get upgrade -y
+sudo pip3 install --upgrade setuptools -y 
+sudo apt-get install -y python3-smbus python3-dev i2c-tools
+sudo adduser orangepi i2c
+sudo apt-get install -y python3 
+sudo apt-get install python3-full -y
+sudo apt-get install git -y
+sudo apt-get install python3-pip -y
+sudo apt-get install libgpiod2 python3-libgpiod -y
+sudo rm -rf /usr/lib/python3.11/EXTERNALLY-MANAGED
+sudo pip3 install gpiod  -y
+cd ~/work
+git clone https://github.com/orangepi-xunlong/wiringOP.git -b next
+cd wiringOP
+sudo ./build clean
+sudo ./build
+sudo pip3 install adafruit-blinka
+sudo pip3 install --upgrade adafruit-blinka adafruit-platformdetect 
+#sudo python3 -m pip install --force-reinstall adafruit-blinka
+sudo pip3 install adafruit-circuitpython-ahtx0 
+sudo pip3 install adafruit-circuitpython-htu21d
+sudo pip3 install adafruit-circuitpython-vcnl4040
+
+============================================
+
+
+#!/bin/sh
+
+hostname=$(uci get system.@system[0].hostname)
+wan_ip=$(. /lib/functions/network.sh; network_find_wan NET_IF; network_get_ipaddr NET_ADDR "${NET_IF}"; echo "${NET_ADDR}")
+lan_ip=$(uci get network.lan.ipaddr)
+wifi_strength=$(cat /proc/net/wireless | awk 'NR==3 {print $4}' | sed 's/\.//')
+let cpu_temp=$(cat /sys/class/thermal/thermal_zone0/temp)/1000
+
+echo $hostname "|" WAN:$wan_ip "|" LAN:$lan_ip "|" WAN:$wifi_strength dbm CPU:$cpu_temp c > /dev/ttyAMA0
+
+
+=========================
+/sys/devices/platform/soc/11005000.i2c/i2c-1/i2c-dev/i2c-1
+/sys/devices/platform/soc/11003000.i2c/i2c-0/i2c-dev/i2c-0
+
+
+in mt7988a.dtsi"
+
+i2c0: i2c@11003000
+i2c1: i2c@11004000
+i2c2: i2c@11005000
+
+
+opkg update 
+opkg install i2c-tools libi2c --force-reinstall
+##kmod-i2c-gpio-custom i2c-core i2c-gpio 
+opkg install  python3-smbus python3-dev i2c-tools
+##sudo adduser orangepi i2c
+opkg install python3 
+opkg install git
+opkg install python3-pip
+
+Before:
+
+root@BPI-R4:/nvme/work# i2cdetect -y 0
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+60: -- -- -- -- UU -- -- -- -- -- -- -- -- -- -- --
+70: -- -- -- -- -- -- -- --
+root@BPI-R4:/nvme/work# i2cdetect -y 1
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: 50 51 -- -- -- -- -- UU -- -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: UU -- -- -- -- -- -- --
+root@BPI-R4:/nvme/work# i2cdetect -y 2
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: -- 51 -- -- -- -- -- UU -- -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: UU -- -- -- -- -- -- --
+root@BPI-R4:/nvme/work# i2cdetect -y 3
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: 50 51 -- -- -- -- -- -- -- -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: UU -- -- -- -- -- -- --
+root@BPI-R4:/nvme/work# i2cdetect -y 4
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: 50 51 -- -- -- -- -- -- -- -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: UU -- -- -- -- -- -- --
+root@BPI-R4:/nvme/work# i2cdetect -y 5
+     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
+00:                         -- -- -- -- -- -- -- --
+10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: UU -- -- -- -- -- -- --
+root@BPI-R4:/nvme/work#
+
+After
+
+pip3 install luma-oled
+
+
+
+i2cdump -y 1 0x3C
+
+You need to enable i2c-core and i2c-gpio before…
+
+
+echo "ssd1306 0x3C"> /sys/class/i2c-dev/i2c-1/new_device
+
+echo "ssd1306 0x3C" > /sys/class/i2c-adapter/i2c-2/new_device
+
+
+
+root@OpenWrt:/sys/devices/platform/soc# ls -ltr *i2c*
+11005000.i2c:
+drwxr-xr-x    9 root     root             0 Jan  1  1970 i2c-1
+-rw-r--r--    1 root     root          4096 Mar  3 15:48 uevent
+lrwxrwxrwx    1 root     root             0 Mar  3 15:48 subsystem -> ../../../../bus/platform
+drwxr-xr-x    2 root     root             0 Mar  3 15:48 power
+lrwxrwxrwx    1 root     root             0 Mar  3 15:48 of_node -> ../../../../firmware/devicetree/base/soc/i2c@11005000
+-r--r--r--    1 root     root          4096 Mar  3 15:48 modalias
+-rw-r--r--    1 root     root          4096 Mar  3 15:48 driver_override
+lrwxrwxrwx    1 root     root             0 Mar  3 15:48 driver -> ../../../../bus/platform/drivers/i2c-mt65xx
+
+11003000.i2c:
+drwxr-xr-x    5 root     root             0 Jan  1  1970 i2c-0
+-rw-r--r--    1 root     root          4096 Mar  3 15:48 uevent
+lrwxrwxrwx    1 root     root             0 Mar  3 15:48 subsystem -> ../../../../bus/platform
+drwxr-xr-x    2 root     root             0 Mar  3 15:48 power
+lrwxrwxrwx    1 root     root             0 Mar  3 15:48 of_node -> ../../../../firmware/devicetree/base/soc/i2c@11003000
+-r--r--r--    1 root     root          4096 Mar  3 15:48 modalias
+-rw-r--r--    1 root     root          4096 Mar  3 15:48 driver_override
+lrwxrwxrwx    1 root     root             0 Mar  3 15:48 driver -> ../../../../bus/platform/drivers/i2c-mt65xx
+
+
+
+
+====
+mt7988a.dtsi:
+
+                i2c0: i2c@11003000 {
+                        compatible = "mediatek,mt7988-i2c",
+                                     "mediatek,mt7981-i2c";
+                        reg = <0 0x11003000 0 0x1000>,
+                              <0 0x10217080 0 0x80>;
+                        interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
+...
+                        status = "okay";
+                };
+
+                i2c1: i2c@11004000 {
+                        compatible = "mediatek,mt7988-i2c",
+                                     "mediatek,mt7981-i2c";
+                        reg = <0 0x11004000 0 0x1000>,
+                              <0 0x10217100 0 0x80>;
+...
+                        status = "okay";
+                };
+
+                i2c2: i2c@11005000 {
+                        compatible = "mediatek,mt7988-i2c",
+                                "mediatek,mt7981-i2c";
+                        reg = <0 0x11005000 0 0x1000>,
+                              <0 0x10217180 0 0x80>;
+...
+                        status = "okay";
+
+
+or dedicated dtso file:
+
+/dts-v1/;
+/plugin/;
+
+#include "mt7988a.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+        compatible = "bananapi,bpi-r4", "mediatek,mt7988a", "mediatek,mt7981-i2c", "mediatek,mt7988-i2c";
+
+        fragment@0 {
+                target = <&i2c1>;
+                __overlay__ {
+                        pinctrl-names = "default";
+                        pinctrl-0 = <&i2c1_pins>;
+                        status = "okay";
+                };
+        };
+};
+
+
+and all the time once image compiled I have only:
+root@OpenWrt:/sys/devices/platform/soc# ls -ltr *i2c*
+11005000.i2c:
+11003000.i2c:
+
+misssing device 11004000.i2c and of course any i2cdetect -y 0/1/2.... detects nothing...
+
+
+
+root@BPI-R4:~# ls -dl /sys/devices/platform/soc/1100*.i2c
+drwxr-xr-x    4 root     root             0 Jan  1  1970 /sys/devices/platform/soc/11003000.i2c
+drwxr-xr-x    4 root     root             0 Jan  1  1970 /sys/devices/platform/soc/11004000.i2c >>> i2c1 detected :)
+drwxr-xr-x    4 root     root             0 Jan  1  1970 /sys/devices/platform/soc/11005000.i2c
+
+
+=================OLED on BPI-R4======================================
+https://github.com/xptsp/bpi-r2-ssd1306-display
+
+okpg install -y python3-pip libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk gcc 
+
+python3 -m pip install --upgrade pip wheel setuptools
+python3 -m pip install Adafruit-SSD1306 Adafruit-BBIO Adafruit-GPIO Adafruit-PureIO Pillow psutil 
+
+
+
+
+=====================
+
+more info.sh
+
+#!/bin/bash
+
+STATUS_UP=UP
+
+cd /nvme/work/oled
+
+info.sh:
+rm ./info2.log
+echo "LAN: `ifconfig br-lan |grep "inet " |awk '{print $2}'`" > info2.log
+echo "WAN: `ifconfig eth3 |grep "inet " |awk '{print $2}'`" >> info2.log
+SSID=`iwinfo  |grep "ESSID" | awk '{print $3}'`
+UPDOWN=`iwinfo  |grep "Bit Rate" | awk '{print $3}'`
+wynik=$(printf "%.0f" $UPDOWN)
+if [[ "$wynik" -gt "0" ]]
+        then STATUS=UP
+        else STATUS=DOWN
+fi
+echo "WIFI: $SSID $STATUS" >> info2.log
+sed -i 's/addr://g' ./info2.log
+
+
+more sensors.sh
+
+#!/bin/bash
+
+#Preparing file with value to displayed on OLED
+cd /nvme/work/oled
+./info.sh
+
+#Send data to OLED
+./oled128x64 /dev/i2c-1
+sleep 30
+rm info2.log
+#Clear OLED display
+./oled128x64 /dev/i2c-1
