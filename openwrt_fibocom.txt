@@ -1,0 +1,478 @@
+Used docs:
+
+https://openwrt.org/docs/guide-user/network/wan/wwan/ethernetoverusb_rndis
+https://openwrt.org/docs/guide-user/network/wan/wwan/ltedongle
+https://openwrt.org/docs/guide-user/network/wan/wwan/ethernetoverusb_ncm
+https://openwrt.org/docs/guide-user/network/wan/wwan/ethernetoverusb_cdc
+https://eko.one.pl/?p=openwrt-3g
+
+My router BPI-R4 hardware config is:
+- MT7922
+- BE200
+- Fibocom FM350-GL
+- OS:  OpenWrt SNAPSHOT, r25280-08e249d43c
+
+
+=================initial setup=======================================
+opkg update
+opkg install kmod-usb-serial kmod-usb-serial-option kmod-usb-serial-qualcomm picocom kmod-usb-net-rndis usb-modeswitch
+oppkg install minicom soscat luci-app-sms-tool gcom sms_tool pcitools usbtools
+
+!!! I dont use ModemManager only scripts!!!!
+
+root@BPI-R4:~# lsusb
+Bus 002 Device 003: ID 0e8d:7127 Fibocom Wireless Inc. FM350-GL
+root@BPI-R4:~# lsusb -t
+/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=xhci-mtk/1p, 480M
+    |__ Port 001: Dev 002, If 0, Class=[unknown], Driver=hub/5p, 480M
+        |__ Port 002: Dev 003, If 0, Class=[unknown], Driver=[none], 12M
+        |__ Port 002: Dev 003, If 1, Class=[unknown], Driver=[none], 12M
+        |__ Port 003: Dev 004, If 0, Class=[unknown], Driver=[none], 480M
+        |__ Port 003: Dev 004, If 1, Class=[unknown], Driver=[none], 480M
+        |__ Port 003: Dev 004, If 2, Class=[unknown], Driver=[none], 480M
+        |__ Port 005: Dev 005, If 0, Class=[unknown], Driver=[none], 480M
+/:  Bus 002.Port 001: Dev 001, Class=root_hub, Driver=xhci-mtk/1p, 20000M/x2
+    |__ Port 001: Dev 002, If 0, Class=[unknown], Driver=hub/4p, 5000M/x2
+        |__ Port 001: Dev 003, If 0, Class=[unknown], Driver=rndis_host, 5000M
+        |__ Port 001: Dev 003, If 1, Class=[unknown], Driver=rndis_host, 5000M
+        |__ Port 001: Dev 003, If 2, Class=[unknown], Driver=[none], 5000M
+        |__ Port 001: Dev 003, If 3, Class=[unknown], Driver=[none], 5000M
+        |__ Port 001: Dev 003, If 4, Class=[unknown], Driver=[none], 5000M
+        |__ Port 001: Dev 003, If 5, Class=[unknown], Driver=[none], 5000M
+        |__ Port 001: Dev 003, If 6, Class=[unknown], Driver=[none], 5000M
+        |__ Port 001: Dev 003, If 7, Class=[unknown], Driver=[none], 5000M
+        |__ Port 001: Dev 003, If 8, Class=[unknown], Driver=[none], 5000M
+        |__ Port 001: Dev 003, If 9, Class=[unknown], Driver=[none], 5000M
+
+
+cat /sys/kernel/debug/usb/devices:
+
+T:  Bus=02 Lev=02 Prnt=02 Port=00 Cnt=01 Dev#=  3 Spd=5000 MxCh= 0
+D:  Ver= 3.00 Cls=ef(misc ) Sub=02 Prot=01 MxPS= 9 #Cfgs=  1
+P:  Vendor=0e8d ProdID=7127 Rev= 0.01
+S:  Manufacturer=Fibocom Wireless Inc.
+S:  Product=FM350-GL
+C:* #Ifs=10 Cfg#= 1 Atr=a0 MxPwr=896mA
+A:  FirstIf#= 0 IfCount= 2 Cls=e0(wlcon) Sub=01 Prot=03
+I:* If#= 0 Alt= 0 #EPs= 1 Cls=02(comm.) Sub=02 Prot=ff Driver=rndis_host
+E:  Ad=82(I) Atr=03(Int.) MxPS=  64 Ivl=125us
+I:* If#= 1 Alt= 0 #EPs= 2 Cls=0a(data ) Sub=00 Prot=00 Driver=rndis_host
+E:  Ad=81(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=01(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 2 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=(none)
+E:  Ad=83(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=02(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 3 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=(none)
+E:  Ad=84(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=03(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 4 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=(none)
+E:  Ad=85(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=04(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 5 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=42 Prot=01 Driver=(none)
+E:  Ad=86(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=05(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 6 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=(none)
+E:  Ad=87(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=06(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 7 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=(none)
+E:  Ad=88(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=07(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 8 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=(none)
+E:  Ad=89(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=08(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 9 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=(none)
+E:  Ad=8a(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=09(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+
+
+root@BPI-R4:~# dmesg |grep rndis
+[   10.597213] rndis_host 2-1.1:1.0 eth3: register 'rndis_host' at usb-11200000.usb-1.1, RNDIS device, 00:00:11:12:13:14
+[   10.607985] usbcore: registered new interface driver rndis_host
+
+dmesg |grep usb
+[    6.739407] usbcore: registered new interface driver usbfs
+[    6.744914] usbcore: registered new interface driver hub
+[    6.750301] usbcore: registered new device driver usb
+[    6.987927] xhci-mtk 11200000.usb: supply vbus not found, using dummy regulator
+[    6.995304] xhci-mtk 11200000.usb: supply vusb33 not found, using dummy regulator
+[    7.003171] xhci-mtk 11200000.usb: xHCI Host Controller
+[    7.008406] xhci-mtk 11200000.usb: new USB bus registered, assigned bus number 1
+[    7.018796] xhci-mtk 11200000.usb: hcc params 0x01403f99 hci version 0x110 quirks 0x0000000000210010
+[    7.027948] xhci-mtk 11200000.usb: irq 130, io mem 0x11200000
+[    7.033751] xhci-mtk 11200000.usb: xHCI Host Controller
+[    7.038985] xhci-mtk 11200000.usb: new USB bus registered, assigned bus number 2
+[    7.046369] xhci-mtk 11200000.usb: Host supports USB 3.2 Enhanced SuperSpeed
+[    7.061535] usb usb2: We don't know the algorithms for LPM for this host, disabling LPM.
+[    7.477358] usb 2-1: new SuperSpeed USB device number 2 using xhci-mtk
+[    7.657290] usb 1-1: new high-speed USB device number 2 using xhci-mtk
+[    8.179223] usb 2-1.1: new SuperSpeed USB device number 3 using xhci-mtk
+[    8.587294] usb 1-1.2: new full-speed USB device number 3 using xhci-mtk
+[    8.917292] usb 1-1.3: new high-speed USB device number 4 using xhci-mtk
+[    9.197292] usb 1-1.5: new high-speed USB device number 5 using xhci-mtk
+[   10.483499] usbcore: registered new interface driver cdc_acm
+[   10.497871] usbcore: registered new interface driver cdc_wdm
+[   10.531380] usbcore: registered new interface driver usbserial_generic
+[   10.537959] usbserial: USB Serial support registered for generic
+[   10.544463] usbcore: registered new interface driver cdc_ether
+[   10.550899] usbcore: registered new interface driver cdc_ncm
+[   10.560251] usbcore: registered new interface driver huawei_cdc_ncm
+[   10.599438] usbcore: registered new interface driver qmi_wwan
+[   10.609999] rndis_host 2-1.1:1.0 eth3: register 'rndis_host' at usb-11200000.usb-1.1, RNDIS device, 00:00:11:12:13:14
+[   10.620812] usbcore: registered new interface driver rndis_host
+[   10.873676] usbcore: registered new interface driver option
+[   10.888462] usbserial: USB Serial support registered for GSM modem (1-port)
+[   10.905280] usbcore: registered new interface driver qcserial
+[   10.911075] usbserial: USB Serial support registered for Qualcomm USB modem
+
+
+=================initial setup 2=======================================
+
+usbswitch mode for Bus 002 Device 003: ID 0e8d:7127 Fibocom Wireless Inc. FM350-GL
+probably is needed to be executed once to enable the router in general.
+
+# usbmode -s -v -c /root/usb-mode-custom.json
+
+usb-mode-custom.json:
+{
+	"messages" : [
+                "555342431234567800000000000006d0000000000000000000000000000000",
+                "55534243123456780002000000000a2a000000003300000100000000000000",
+                "5553424312345678000000000000061b004600000000000000000000000000",
+                "0f00010142",
+                "55534243f0298d8124000000800006bc626563240000000000000000000000",
+                "0902200001010080fa0904000002080650000705010200020007058102000200",
+                "55534243785634120100000080000601000000000000000000000000000000",
+                "55534243123456780000000000000616000000000000000000000000000000",
+                "55534243123456782400000080000612000024000000000000000000000000",
+                "5553424312345678000000000000061b000000ff0000000000000000000000",
+                "5553424368032c882400000080000612000000240000000000000000000000",
+                "5553424308306384c000000080000671030000000000000000000000000000",
+                "5553424312345678c00000008000069f140000000000000000000000000000",
+                "01b0000000000000000000000000000000000000000000000000000000000000",
+                "555342431234567800000000000006bd000000020000000000000000000000",
+                "1b5a01",
+                "5553424312345678c000000080010606f50402527000000000000000000000",
+                "55534243123456788000000080000606f50402527000000000000000000000",
+                "555342431234567800000000000006f0010300000000000000000000000000",
+                "55534243123456780000000000000aff554d53434847000000000000000000",
+                "555342431234567803000000800006f1010100000000000000000000000000",
+                "555342431234567800000000000005f1010100000000000000000000000000",
+                "555342431234567824000000800008ff024445564348470000000000000000",
+                "555342431234567824000000800008ff020000000000000000000000000000",
+                "55534243b82e238c24000000800008ff020000000000000000000000000000",
+                "55534243123456780600000080000601000000000000000000000000000000",
+                "55534243123456780600000080010a11060000000000000000000000000000",
+                "55534243123456780000000000000601000000000000000000000000000000",
+                "55534243123456780000000080000606f50402527100000000000000000000",
+                "555342431234567824000000800008ff524445564348470000000000000000",
+                "555342431234567824000000800008ff524445564348473100000000000000",
+                "55534243123456782400000080000dfe524445564348473d4e444953000000",
+                "55534243d85dd88524000000800008ff524445564348470000000000000000",
+                "55534243123456702000000080000c85010101180101010101000000000000",
+                "55534243123456782400000080000685000000240000000000000000000000",
+                "55534243d8a523862400000080000685000000240000000000000000000000",
+                "55534243123456782000000080000c85010101180101010101000000000000",
+                "5553424348c4758600000000000010ff000000000000000000000000000000",
+                "555342431234567824000000800006bc626563240000000000000000000000",
+                "5553424330f4cf8124000000800108df200000000000000000000000000000",
+                "5553424312345678c00000008000069f030000000000000000000000000000",
+                "555342431234567824000000800008FF05B112AEE102000000000000000000",
+                "55534243123456780000000000000606f50402527000000000000000000000",
+                "55534243123456780000000080000606f50402527000000000000000000000",
+                "555342431234567800000000000001ff000000000000000000000000000000",
+                "55534243123456781200000080000603000000020000000000000000000000",
+                "55534243123456780000000000000cff020000000000000000000000000000",
+                "5553424312345678800000008000060619181a207000000000000000000000",
+                "555342431234567800000000000010ff000000000000000000000000000000",
+                "555342431234567800000000000008ff000000000000030000000000000000",
+                "555342431234567824000000800108df200000000000000000000000000000",
+                "55534243f8d2e6838000000080000606f50402527000000000000000000000",
+                "555342431234567800000000000003f0010100000000000000000000000000",
+                "55534243123456780000000000000600000000000000000000000000000000",
+                "5553424312345679c000000080000671030000000000000000000000000000",
+                "555342430820298900000000000003f0010100000000000000000000000000",
+                "55534243123456700000000000000616aa0000000000000000000000000000",
+                "5553424312345678c000000080000671010000000000000000000000000000",
+                "5553424340799288C000000080010A16000000C00000000000000000000000",
+                "555342431234567800000000000006161f6d62706b00000000000000000000",
+                "5553424398e2c4812400000080000bff524445564348473d43440000000000"
+],
+	"devices" : {
+		"0e8d:7127": {
+			"*": {
+				"t_vendor": 3725,
+				"t_product": [ 28967 ],
+				"msg": [  ]
+			}
+		}
+	}
+}
+=================driver installation=======================================
+
+For my modem the driver "usbserial_generic" works.
+
+# echo "0e8d 7127" > /sys/bus/usb-serial/drivers/generic/new_id
+
+But after some tests (kernel 6.1/6.6) driver option works and it is better to use option dirver.
+
+# echo "0e8d 7127 ff" > /sys/bus/usb-serial/drivers/option1/new_id
+
+cat /sys/kernel/debug/usb/devices
+T:  Bus=02 Lev=02 Prnt=02 Port=00 Cnt=01 Dev#=  3 Spd=5000 MxCh= 0
+D:  Ver= 3.00 Cls=ef(misc ) Sub=02 Prot=01 MxPS= 9 #Cfgs=  1
+P:  Vendor=0e8d ProdID=7127 Rev= 0.01
+S:  Manufacturer=Fibocom Wireless Inc.
+S:  Product=FM350-GL
+C:* #Ifs=10 Cfg#= 1 Atr=a0 MxPwr=896mA
+A:  FirstIf#= 0 IfCount= 2 Cls=e0(wlcon) Sub=01 Prot=03
+I:* If#= 0 Alt= 0 #EPs= 1 Cls=02(comm.) Sub=02 Prot=ff Driver=rndis_host
+E:  Ad=82(I) Atr=03(Int.) MxPS=  64 Ivl=125us
+I:* If#= 1 Alt= 0 #EPs= 2 Cls=0a(data ) Sub=00 Prot=00 Driver=rndis_host
+E:  Ad=81(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=01(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 2 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=option
+E:  Ad=83(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=02(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 3 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=option
+E:  Ad=84(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=03(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 4 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=option
+E:  Ad=85(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=04(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 5 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=42 Prot=01 Driver=option
+E:  Ad=86(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=05(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 6 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=option
+E:  Ad=87(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=06(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 7 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=option
+E:  Ad=88(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=07(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 8 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=option
+E:  Ad=89(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=08(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+I:* If#= 9 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=00 Prot=00 Driver=option
+E:  Ad=8a(I) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+E:  Ad=09(O) Atr=02(Bulk) MxPS=1024 Ivl=0ms
+
+
+
+
+=================interface installation=======================================
+
+My FM350-GL communicates on port /dev/ttyUSB4
+
+run under minicom -D /dev/ttyUSB4
+
+AT+CGDCONT=1,"IP","internet"
+AT+CGACT=1,1
+AT+CGPADDR=1 --my IP
+AT+CGCONTRDP 
+AT+CGCONTRDP=1 -- my DNS
+
+
+add section in /etc/config/network 
+
+config interface 'FM350GL'
+	option proto 'static'
+	option device 'eth3'
+	option ipaddr '10.205.207.176'
+	option gateway '0.0.0.0'
+        list dns '8.8.8.8'
+        list dns '8.8.4.4'
+
+You can use DNS addresses from your ISP or google public ones as above.
+
+	list dns 'X.X.X.X'
+	list dns 'Y.Y.Y.Y'
+
+in LUCI in firewall section of FM350GL interface add "wan".
+
+
+===============autostart==============================================
+
+in /root/fm350gl.sh
+
+#!/bin/sh
+#
+# FM350-GL modem initilization and config
+#
+# DroZDi 25.02.2024
+#
+cd /root
+rm my_ip.txt
+rm my_ip2.txt
+/bin/mount -a
+/usr/sbin/i2cdetect -y -r 1
+#
+# Installing driver usbserial_generic for FM350-GL
+#
+#echo "0e8d 7127" > /sys/bus/usb-serial/drivers/generic/new_id
+# Installing driver optional for FM350-GL
+#
+echo "0e8d 7127 ff" > /sys/bus/usb-serial/drivers/option1/new_id
+#
+# Some time for SIM registration
+#
+#echo -e "AT+CFUN=1,1" > /dev/ttyUSB4
+sms_tool -d /dev/ttyUSB4 at "AT+CFUN=1,1"
+sleep 20
+#
+# Modem initilization and internet connection
+#
+#echo -e "AT+CGDCONT=1,\"IP\",\"internet\"" > /dev/ttyUSB4
+#sleep 5
+#echo -e "AT+CGACT=1,1" > /dev/ttyUSB4
+#sleep 5
+#
+# Assigning ISP IP address to the FM350GL interface
+#
+#echo AT+CGPADDR=1 | socat - /dev/ttyUSB4,crnl > my_ip.txt
+sms_tool -d /dev/ttyUSB4 at "AT+CGDCONT=1,\"IP\",\"internet\"" > my_ip2.txt
+sleep 8
+sms_tool -d /dev/ttyUSB4 at "AT+CGACT=1,1" >> my_ip2.txt
+sleep 23
+sms_tool -d /dev/ttyUSB4 at "AT+CGPADDR=1" > my_ip.txt
+#fm350gl_ip_address=`cat my_ip.txt |grep -v OK |grep -v "AT+CGPADDR" |grep -v ^$ | tr -d '"' | grep "+CGPADDR" | awk -F ',' '{print $2}' | uniq`
+fm350gl_ip_address=`cat my_ip.txt |grep -v "AT+CGPADDR" |grep -v ^$ | tr -d '"' | grep "+CGPADDR" | awk -F ',' '{print $2}' | tail -n 1`
+uci set network.FM350GL.ipaddr="$fm350gl_ip_address"
+uci commit network
+service network reload
+
+exit 0
+
+sometimes sleep is not accurete so you can just adjust more or less seconds in the script above
+
+# chmod 755 /root/fm350gl.sh
+
+
+root@BPI-R4:/etc/init.d# cat fm350gl
+#!/bin/sh /etc/rc.common
+USE_PROCD=1
+START=95
+STOP=01
+start_service() {
+    procd_open_instance
+    procd_set_param command /bin/sh "/root/fm350gl.sh"
+    procd_close_instance
+}
+
+
+root@BPI-R4:/etc/init.d# chmod 755 fm350gl
+root@BPI-R4:/etc/init.d# /etc/init.d/fm350gl enable
+root@BPI-R4:~# ls -la /etc/rc.d/S95*
+lrwxrwxrwx    1 root     root            17 Feb 25 10:42 /etc/rc.d/S95fm350gl -> ../init.d/fm350gl
+
+reboot 
+
+
+
+
+
+=================modem checks/troubleshooting =======================================
+
+How to send command to USB modem:
+
+screen /dev/ttyUSB2
+screen /dev/ttyUSB2 115200
+minicom -D /dev/ttyUSB4
+socat - /dev/ttyUSB4,crnl
+picocom /dev/ttyUSB4
+
+
+echo AT+CGDCONT=1,\"IP\",\"internet\" | socat - /dev/ttyUSB4,crnl
+echo AT+CGACT=1,1 | socat - /dev/ttyUSB4,crnl
+echo AT+CGPADDR=1 | socat - /dev/ttyUSB4,crnl
+
+echo -e "AT+CGDCONT=1,\"IP\",\"internet\"" > /dev/ttyUSB4
+echo -e "AT+CGACT=1,1" > /dev/ttyUSB4
+echo -e "AT+CGPADDR=1" > /dev/ttyUSB4
+
+
+AT+QNWPREFCFG=?
+AT+QNWPREFCFG="nr5g_band"
+AT+QCFG="nwscanmode",0,1
+AT+QCFG="nwscanmode",3,1
+
+
+AT+COPS=?
+
++COPS:
+
+
+
+OK
+AT+COPS?
++COPS:0,2,"26001",7
+AT+E5GOPT?
+AT+C5GREG?
+AT+CSCON?  which connection
+AT+C5GREG=2 
+AT+E5GOPT=7/8
+
+
+
+Set modem to LTE only:
+echo -e "AT+QCFG=\"nwscanmode\",3,1" > /dev/ttyUSB2
+
+Set it back to “auto”:
+echo -e "AT+QCFG=\"nwscanmode\",0,1" > /dev/ttyUSB2
+
+
+OPTIONS:
+Port /dev/ttyUSB5, 18:55:05
+
+Press CTRL-A Z for help on special keys
+
+AT+SIMTYPE?
++SIMTYPE: 1 -- ESIM
+AT+GTDUALSIM=0 --switch to normal SIM
+
+AT+GTDUALSIM?
++GTDUALSIM : 0, "SUB1", "NR"
+
+Set modem to LTE only:
+echo -e "AT+QCFG=\"nwscanmode\",3,1" > /dev/ttyUSB4
+
+Set it back to “auto”:
+echo -e "AT+QCFG=\"nwscanmode\",0,1" > /dev/ttyUSB4
+
+AT+GTDUALSIM=0 - to switch to my SIM, this works well.
+AT+GTDUALSIM? - to check connection status, this says it's connected to LTE.
+AT+CPOL? - to check the list of allowed operators by the SIM. It reports several, so all is still good.
+AT+CGDCONT=0,"IPV4V6","internet.tele2.lt","",,,1,0,2 - SET APN and DHCP. Returns OK.
+AT+CGCONTRDP=0 - returns what seems to be a bit different APN and DNS addresses, but no gateway address.
+AT+CGPADDR=0 - returns PDP IP address. I guess this is the IP address I'm handed by DHCP?
+
+AT+CFUN=1,1 --reset
+AT+CMEE=1 -- more detailed errors
+AT+CMEE=2 -- more detailed errors
+AT+CGMI --vendor
+AT+CGMM --modem model
+AT+GSN -- modem IMEI
+AT+CCID --SIM info
+AT+CNUM --SIM phone number
+AT+CIMI -IMEI SIM card
+AT+CIMI? -IMEI SIM card
+AT+CPIN? --check if PIN needed
+AT+CSQ -- signal quality
+AT+COPS=? -- list 
+AT+COPS?
+AT+CPOL?
+AT+GTUSBMODE?
+AT+GTUSBMODE=?
+
+
+
+AT+CGDCONT=1,"IP","internet"
+AT+CGACT=1,1
+AT+CGPADDR=1 --my IP
++CGPADDR: 1,"10.199.37.8",""
+AT+CGCONTRDP 
+AT+CGCONTRDP=1 -- my DNS
++CGCONTRDP: 1,5,"internet.mnc003.mcc260.gprs","","","194.204.159.1","194.204.152.34","","",0,,1500,,,,,,,,,,,,0
+
+
+ sms_tool -d /dev/ttyUSB4 at "AT+CGPADDR=1"
+
+MODE="AT+CGPADDR=1" gcom -d /dev/ttyUSB4 -s /etc/gcom/setmode.gcom
