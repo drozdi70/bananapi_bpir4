@@ -476,3 +476,219 @@ AT+CGCONTRDP=1 -- my DNS
  sms_tool -d /dev/ttyUSB4 at "AT+CGPADDR=1"
 
 MODE="AT+CGPADDR=1" gcom -d /dev/ttyUSB4 -s /etc/gcom/setmode.gcom
+
+======================PCI device=========================================
+
+#!/usr/bin/sh
+
+case $1 in
+    pre)  modprobe -r mtk_t7xx && echo 1 > /sys/bus/pci/devices/0000:58:00.0/remove ;;
+    post) echo 1 > /sys/bus/pci/rescan && modprobe mtk_t7xx ;;
+esac
+
+lspci -nnk 
+
+===
+root@OpenWrt:/# lspci
+0000:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+0000:01:00.0 Network controller: MEDIATEK Corp. MT7922 802.11ax PCI Express Wireless Network Adapter
+0001:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+0002:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+0002:01:00.0 Non-Volatile memory controller: Sandisk Corp SanDisk Ultra 3D / WD Blue SN550 NVMe SSD (rev 01)
+0003:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+0003:01:00.0 Wireless controller [0d40]: MEDIATEK Corp. Device 4d75 (rev 01)
+
+!!! fix !!!
+lsusb -d 0e8d:7127
+
+
+echo 1 > /sys/bus/pci/devices/0003:01:00.0/remove
+
+root@OpenWrt:/sys/bus/usb/drivers/usb# lspci
+0000:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+0000:01:00.0 Network controller: MEDIATEK Corp. MT7922 802.11ax PCI Express Wireless Network Adapter
+0001:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+0002:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+0002:01:00.0 Non-Volatile memory controller: Sandisk Corp SanDisk Ultra 3D / WD Blue SN550 NVMe SSD (rev 01)
+0003:00:00.0 PCI bridge: MEDIATEK Corp. Device 7988 (rev 01)
+
+root@OpenWrt:/sys/bus/usb/devices/2-1:1.0# ls -ltr
+-rw-r--r--    1 root     root          4096 Mar 16 23:39 uevent
+-r--r--r--    1 root     root          4096 Mar 16 23:39 supports_autosuspend
+lrwxrwxrwx    1 root     root             0 Mar 16 23:39 subsystem -> ../../../../../../../bus/usb
+drwxr-xr-x    2 root     root             0 Mar 16 23:39 power
+-r--r--r--    1 root     root          4096 Mar 16 23:39 modalias
+drwxr-xr-x    3 root     root             0 Mar 16 23:39 ep_81
+lrwxrwxrwx    1 root     root             0 Mar 16 23:39 driver -> ../../../../../../../bus/usb/drivers/hub
+-r--r--r--    1 root     root          4096 Mar 16 23:39 bNumEndpoints
+-r--r--r--    1 root     root          4096 Mar 16 23:39 bInterfaceSubClass
+-r--r--r--    1 root     root          4096 Mar 16 23:39 bInterfaceProtocol
+-r--r--r--    1 root     root          4096 Mar 16 23:39 bInterfaceNumber
+-r--r--r--    1 root     root          4096 Mar 16 23:39 bInterfaceClass
+-r--r--r--    1 root     root          4096 Mar 16 23:39 bAlternateSetting
+-rw-r--r--    1 root     root          4096 Mar 16 23:39 authorized
+drwxr-xr-x    3 root     root             0 Mar 16 23:39 2-1-port4
+drwxr-xr-x    3 root     root             0 Mar 16 23:39 2-1-port3
+drwxr-xr-x    3 root     root             0 Mar 16 23:39 2-1-port2
+drwxr-xr-x    3 root     root             0 Mar 16 23:39 2-1-port1
+
+
+root@OpenWrt:/sys/bus/usb/drivers/usb# ls -tlr
+lrwxrwxrwx    1 root     root             0 Mar 16 23:27 usb2 -> ../../../../devices/platform/soc/11200000.usb/usb2
+lrwxrwxrwx    1 root     root             0 Mar 16 23:27 usb1 -> ../../../../devices/platform/soc/11200000.usb/usb1
+--w-------    1 root     root          4096 Mar 16 23:27 unbind
+--w-------    1 root     root          4096 Mar 16 23:27 uevent
+lrwxrwxrwx    1 root     root             0 Mar 16 23:27 module -> ../../../../module/usbcore
+--w-------    1 root     root          4096 Mar 16 23:27 bind
+lrwxrwxrwx    1 root     root             0 Mar 16 23:27 2-1 -> ../../../../devices/platform/soc/11200000.usb/usb2/2-1
+
+    echo -n "2-1:1" > /sys/bus/usb/drivers/usb/bind
+
+echo "on" > "/sys/bus/usb/devices/2-1:1.0/control"
+
+
+----used solution----
+
+https://github.com/dangowrt/linux/commit/c202f510bbaa34ab5d65a69a61e0e72761374b17
+
+drivers/clk/mediatek/clk-mt7988-infracfg.c
+GATE_INFRA0(CLK_INFRA_PCIE_PERI_26M_CK_P1, "infra_pcie_peri_ck_26m_ck_p1",
+		    "csw_infra_f26m_sel", 8),
+	GATE_INFRA0(CLK_INFRA_PCIE_PERI_26M_CK_P2, "infra_pcie_peri_ck_26m_ck_p2",
+ma byc:		    "csw_infra_f26m_sel", 9),
+usunac:		    "infra_pcie_peri_ck_26m_ck_p3", 9),
+	GATE_INFRA0(CLK_INFRA_PCIE_PERI_26M_CK_P3, "infra_pcie_peri_ck_26m_ck_p3",
+		    "csw_infra_f26m_sel", 10),
+	/* INFRA1 */
+
+
+249-v6.8-clk-mediatek-add-drivers-for-MT7988-SoC.patch:+        GATE_INFRA0(CLK_INFRA_PCIE_PERI_26M_CK_P3, "infra_pcie_peri_ck_26m_ck_p3",
+252-clk-mediatek-mt7988-infracfg-fix-clocks-for-2nd-PCIe.patch:+                    "infra_pcie_peri_ck_26m_ck_p3", 9),
+252-clk-mediatek-mt7988-infracfg-fix-clocks-for-2nd-PCIe.patch:         GATE_INFRA0(CLK_INFRA_PCIE_PERI_26M_CK_P3, "infra_pcie_peri_ck_26m_ck_p3",
+openwrt@orangepi5-plus:~/work/openwrt/target/linux/mediatek/patches-6.6$
+
+Solution to come back to USB mode for pci2:
+
+in target/linux/mediatek/patches-6.x/252-clk-mediatek-mt7988-infracfg-fix-clocks-for-2nd-PCIe.patch:
+is (pcie mode):		    "infra_pcie_peri_ck_26m_ck_p3", 9),
+should be (usb mode):	    "csw_infra_f26m_sel", 9),
+
+mv ./target/linux/mediatek/patches-6.1/252-clk-mediatek-mt7988-infracfg-fix-clocks-for-2nd-PCIe.patch ./target/linux/mediatek/patches-6.1/252-clk-mediatek-mt7988-infracfg-fix-clocks-for-2nd-PCIe.patch_old
+mv ./target/linux/mediatek/patches-6.6/252-clk-mediatek-mt7988-infracfg-fix-clocks-for-2nd-PCIe.patch ./target/linux/mediatek/patches-6.1/252-clk-mediatek-mt7988-infracfg-fix-clocks-for-2nd-PCIe.patch_old
+
+
+======================PCI device UPDATE=========================================
+
+opkg update
+opkg install modemmanager kmod-mtk-t7xx
+
+!!
+patch is required on driver t7xx in order to work otherwise kernel panic
+0001-net-wwan-t7xx-Split-64bit-accesses-to-fix-alignment-.patch >> check this!
+!!!
+
+bootlog:
+root@BPI-R4:~# dmesg |grep -i t7xx
+[   12.701704] mtk_t7xx 0003:01:00.0: assign IRQ: got 113
+[   12.706860] mtk_t7xx 0003:01:00.0: enabling device (0000 -> 0002)
+[   12.712964] mtk_t7xx 0003:01:00.0: enabling bus mastering
+[   13.446069] mtk_t7xx 0003:01:00.0: Packet drop on channel 0x1004, port not found
+[   13.453568] mtk_t7xx 0003:01:00.0: Packet drop on channel 0x1012, port not found
+[   16.489362] mtk_t7xx 0003:01:00.0: Packet drop on channel 0x1004, port not found
+[   16.496813] mtk_t7xx 0003:01:00.0: Packet drop on channel 0x1012, port not found
+[   21.398577] mtk_t7xx 0003:01:00.0: Port AT is not opened, drop packets
+[   21.709905] mtk_t7xx 0003:01:00.0: Port AT is not opened, drop packets
+[   21.716443] mtk_t7xx 0003:01:00.0: Port AT is not opened, drop packets
+[   21.727340] mtk_t7xx 0003:01:00.0: Port AT is not opened, drop packets
+[   22.552384] mtk_t7xx 0003:01:00.0: Packet drop on channel 0x100a, port not found
+[   23.942102] mtk_t7xx 0003:01:00.0: Port AT is not opened, drop packets
+[   24.272151] mtk_t7xx 0003:01:00.0: Port AT is not opened, drop packets
+[   50.818701] mtk_t7xx 0003:01:00.0: save config 0x00: 0x4d7514c3
+[   50.824638] mtk_t7xx 0003:01:00.0: save config 0x04: 0x00100406
+[   50.830548] mtk_t7xx 0003:01:00.0: save config 0x08: 0x0d400001
+[   50.836465] mtk_t7xx 0003:01:00.0: save config 0x0c: 0x00000000
+[   50.842378] mtk_t7xx 0003:01:00.0: save config 0x10: 0x2180000c
+[   50.848286] mtk_t7xx 0003:01:00.0: save config 0x14: 0x00000000
+[   50.854199] mtk_t7xx 0003:01:00.0: save config 0x18: 0x20800004
+[   50.860107] mtk_t7xx 0003:01:00.0: save config 0x1c: 0x00000000
+[   50.866019] mtk_t7xx 0003:01:00.0: save config 0x20: 0x2100000c
+[   50.871931] mtk_t7xx 0003:01:00.0: save config 0x24: 0x00000000
+[   50.877840] mtk_t7xx 0003:01:00.0: save config 0x28: 0x00000000
+[   50.883751] mtk_t7xx 0003:01:00.0: save config 0x2c: 0x35001cf8
+[   50.889659] mtk_t7xx 0003:01:00.0: save config 0x30: 0x00000000
+[   50.895571] mtk_t7xx 0003:01:00.0: save config 0x34: 0x00000080
+[   50.901483] mtk_t7xx 0003:01:00.0: save config 0x38: 0x00000000
+[   50.907392] mtk_t7xx 0003:01:00.0: save config 0x3c: 0x00000171
+[   50.913357] mtk_t7xx 0003:01:00.0: PME# enabled
+[   56.361148] mtk_t7xx 0003:01:00.0: PME# disabled
+
+root@BPI-R4:~# dmesg |grep -i wwan
+[   12.820677] usbcore: registered new interface driver qmi_wwan
+[   21.013517] wwan wwan0: port wwan0at0 attached
+[   21.018071] wwan wwan0: port wwan0mbim0 attached
+
+
+root@BPI-R4:~# ls -ltr /dev/wwa*
+crw-------    1 root     root      241,   1 Mar 23 08:50 /dev/wwan0mbim0
+crw-------    1 root     root      241,   0 Mar 23 08:50 /dev/wwan0at0
+
+root@BPI-R4:~# cat fm350glpci.sh
+#!/bin/sh
+#
+# FM350-GL modem initilization and config
+#
+# DroZDi 23.03.2024
+#
+> /etc/crontabs/root
+cd /root
+rm my_ip.txt
+rm my_gate.txt
+/bin/mount -a
+/usr/sbin/i2cdetect -y -r 1
+#
+# Assigning ISP IP address to the FM350GL interface
+#
+mmcli -m 0 --set-allowed-modes='5g'
+sleep 40
+mmcli -m 0 --simple-connect="apn='internet'"
+sleep 5
+mmcli -b 1 |grep -i address > my_ip.txt
+mmcli -b 1 |grep -i gateway > my_gate.txt
+
+fm350gl_ip_address=`cat my_ip.txt |grep -v ^$ | awk -F ' ' '{print $3}' | tail -n 1`
+fm350gl_ip_gate=`cat my_gate.txt |grep -v ^$ | awk -F ' ' '{print $3}' | tail -n 1`
+uci set network.FM350GLPCI.ipaddr="$fm350gl_ip_address"
+uci set network.FM350GLPCI.gateway="$fm350gl_ip_gate"
+uci commit network
+service network reload
+exit 0
+
+
+add this to /etc/config/network:
+
+config interface 'FM350GLPCI'
+        option proto 'static'
+        option device 'wwan0'
+        list dns '8.8.8.8'
+        list dns '8.8.4.4'
+        option netmask '255.255.255.0'
+
+and from LUCI -> firewall settings set to use wan/wan6
+
+autostart:
+
+cp /nvme/work/fm350glpci /etc/init.d/
+/etc/init.d/fm350glpci enable
+
+root@BPI-R4:~# cat /nvme/work/fm350glpci
+#!/bin/sh /etc/rc.common
+USE_PROCD=1
+START=95
+STOP=01
+start_service() {
+    procd_open_instance
+    procd_set_param command /bin/sh "/root/fm350glpci.sh"
+    procd_close_instance
+}
+
+ 
