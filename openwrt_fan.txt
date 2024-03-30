@@ -1,0 +1,163 @@
+https://forum.banana-pi.org/t/bpi-r4-cpu-fan-setup/17362/58
+=======================================
+
+
+
+in mt7988a-bananapi-bpi-r4.dts add:
+
+
+
+&fan {
+	pwms = <&pwm 0 50000 0>;
+	status = "okay";
+};
+&pwm {
+	status = "okay";
+};
+
+==========================
+
+patch for kernel 6.6 
+
+more pwm-mediatek.c.6.6patch:
+
+--- build_dir/target-aarch64_cortex-a53_musl/linux-mediatek_filogic/linux-6.6.22/drivers/pwm/pwm-mediatek.c2024-03-29 17:50:57.303847248 -0700
++++ build_dir/target-aarch64_cortex-a53_musl/linux-mediatek_filogic/linux-6.6.22/drivers/pwm/pwm-mediatek.c2024-03-29 17:54:04.349927891 -0700
+@@ -285,96 +281,15 @@
+        return 0;
+ }
+
+-static const struct pwm_mediatek_of_data mt2712_pwm_data = {
++static const struct pwm_mediatek_of_data mt7988_pwm_data = {
+        .num_pwms = 8,
+        .pwm45_fixup = false,
+        .has_ck_26m_sel = false,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
++       .reg_offset = mtk_pwm_reg_offset_v2,
+ };
+
+-static const struct pwm_mediatek_of_data mt6795_pwm_data = {
+-       .num_pwms = 7,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = false,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7622_pwm_data = {
+-       .num_pwms = 6,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = true,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7623_pwm_data = {
+-       .num_pwms = 5,
+-       .pwm45_fixup = true,
+-       .has_ck_26m_sel = false,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7628_pwm_data = {
+-       .num_pwms = 4,
+-       .pwm45_fixup = true,
+-       .has_ck_26m_sel = false,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7629_pwm_data = {
+-       .num_pwms = 1,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = false,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-static const struct pwm_mediatek_of_data mt7981_pwm_data = {
+-       .num_pwms = 3,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = true,
+-       .reg_offset = mtk_pwm_reg_offset_v2,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7986_pwm_data = {
+-       .num_pwms = 2,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = true,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt8183_pwm_data = {
+-       .num_pwms = 4,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = true,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt8365_pwm_data = {
+-       .num_pwms = 3,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = true,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt8516_pwm_data = {
+-       .num_pwms = 5,
+-       .pwm45_fixup = false,
+-       .has_ck_26m_sel = true,
+-       .reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+ static const struct of_device_id pwm_mediatek_of_match[] = {
+-       { .compatible = "mediatek,mt2712-pwm", .data = &mt2712_pwm_data },
+-       { .compatible = "mediatek,mt6795-pwm", .data = &mt6795_pwm_data },
+-       { .compatible = "mediatek,mt7622-pwm", .data = &mt7622_pwm_data },
+-       { .compatible = "mediatek,mt7623-pwm", .data = &mt7623_pwm_data },
+-       { .compatible = "mediatek,mt7628-pwm", .data = &mt7628_pwm_data },
+-       { .compatible = "mediatek,mt7629-pwm", .data = &mt7629_pwm_data },
+-       { .compatible = "mediatek,mt7986-pwm", .data = &mt7981_pwm_data },
+-       { .compatible = "mediatek,mt7986-pwm", .data = &mt7986_pwm_data },
+-       { .compatible = "mediatek,mt8183-pwm", .data = &mt8183_pwm_data },
+-       { .compatible = "mediatek,mt8365-pwm", .data = &mt8365_pwm_data },
+-       { .compatible = "mediatek,mt8516-pwm", .data = &mt8516_pwm_data },
++       { .compatible = "mediatek,mt7988-pwm", .data = &mt7988_pwm_data },
+        { },
+ };
+ MODULE_DEVICE_TABLE(of, pwm_mediatek_of_match);
+
+========================
+checks:
+cat /sys/kernel/debug/pwm 
+
+cat  /proc/device-tree/chosen/user-warnings
+
+echo 1 > /sys/class/thermal/cooling_device0/cur_state
+
+makes it runing continuously
+
+
+/sys/class/thermal/cooling_device0/cur_state
+
+/sys/devices/platform/pwm-fan/hwmon/hwmon1/pwm1 
+
+root@OpenWrt:/# cat /sys/class/ieee80211/phy*/hwmon*/temp1_input
+44000
+48000
+
+
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_4_temp
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_3_temp
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_2_temp
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_1_temp
+
+
+root@OpenWrt:/sys/class/thermal# ls -l /sys/class/hwmon/
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 hwmon0 -> ../../devices/virtual/thermal/thermal_zone0/hwmon0
+lrwxrwxrwx    1 root     root             0 Jan  1  1970 hwmon1 -> ../../devices/platform/soc/11290000.pcie/pci0002:00/0002:00:00.0/0002:01:00.0/nvme/nvme0/hwmon1
+lrwxrwxrwx    1 root     root             0 Mar 17 22:45 hwmon2 -> ../../devices/platform/sfp1/hwmon/hwmon2
+lrwxrwxrwx    1 root     root             0 Mar 17 22:45 hwmon3 -> ../../devices/platform/sfp2/hwmon/hwmon3
+lrwxrwxrwx    1 root     root             0 Mar 17 22:45 hwmon4 -> ../../devices/platform/soc/11300000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/ieee80211/phy0/hwmon4
+
+
+========================
+https://github.com/openwrt/openwrt/issues/13772
+https://forum.banana-pi.org/t/banana-pi-r3-fan-with-pwm/14406/173
+https://git01.mediatek.com/plugins/gitiles/openwrt/feeds/mtk-openwrt-feeds/+/1ceb26a3445c950d83ac49b2f272f04d9a9510d2/target/linux/mediatek/files-5.4/arch/arm64/boot/dts/mediatek/mt7986a.dtsi
+https://patchwork.kernel.org/project/linux-mediatek/patch/20230820153135.42588-3-linux@fw-web.de/
