@@ -7,9 +7,8 @@ rm ./info2.log
 echo "LAN: `ifconfig br-lan |grep "inet " |awk '{print $2}'`" > info2.log
 echo "WAN: `uci get network.FM350GLPCI.ipaddr`" >> info2.log
 SSID=`iwinfo  |grep "ESSID" | awk '{print $3}'`
-UPDOWN=`iwinfo  |grep "Bit Rate" | awk '{print $3}'`
-wynik=$(printf "%.0f" $UPDOWN)
-if [[ "$wynik" -gt "0" ]] 
+UPDOWN=`iwinfo  |grep "Access Point" | awk '{print $3}' |wc -l`
+if [[ "$UPDOWN" -gt "0" ]] 
 	then STATUS=UP
 	else STATUS=DOWN
 fi
