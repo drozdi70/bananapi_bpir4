@@ -123,6 +123,21 @@ more pwm-mediatek.c.6.6patch:
  MODULE_DEVICE_TABLE(of, pwm_mediatek_of_match);
 
 ========================
+patching process with new image creation:
+
+./scripts/feeds update -a
+./scripts/feeds install -a
+make -j $(nproc) toolchain/{clean,install}
+make -j $(nproc) target/linux/{prereq,clean,download,prepare}
+
+here patch manually pwm-mediatek.c as below lcoation with code above or wait for an offcial patch
+
+patch build_dir/target-aarch64_cortex-a53_musl/linux-mediatek_filogic/linux-6.6.22/drivers/pwm/pwm-mediatek.c < /home/openwrt66/pwm-mediatek.c.6.6patch
+
+make -j $(nproc) target/linux/compile
+make -j $(nproc) download world
+
+========================
 checks:
 cat /sys/kernel/debug/pwm 
 
