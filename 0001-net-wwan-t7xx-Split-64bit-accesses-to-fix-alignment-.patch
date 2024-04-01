@@ -1,0 +1,101 @@
+From 1ccdc96f2e83dacb8653f2c1935b378f86c660ed Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Date: Fri, 22 Mar 2024 13:18:04 +0100
+Subject: [PATCH] net: wwan: t7xx: Split 64bit accesses to fix alignment issues
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Some of the registers are aligned on a 32bit boundary, causing
+alignment faults on 64bit platforms. The inclusion of
+io-64-nonatomic-lo-hi.h indicates that all 64bit accesses can
+be replaced by pairs of nonatomic 32bit access.  Fix alignment
+by forcing all accesses to be 32bit on 64bit platforms too.
+
+Signed-off-by: Bjørn Mork <bjorn@mork.no>
+---
+ drivers/net/wwan/t7xx/t7xx_cldma.c     | 4 ++--
+ drivers/net/wwan/t7xx/t7xx_hif_cldma.c | 4 ++--
+ drivers/net/wwan/t7xx/t7xx_pcie_mac.c  | 8 ++++----
+ 3 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wwan/t7xx/t7xx_cldma.c b/drivers/net/wwan/t7xx/t7xx_cldma.c
+index 9f43f256db1d..f0a4783baf1f 100644
+--- a/drivers/net/wwan/t7xx/t7xx_cldma.c
++++ b/drivers/net/wwan/t7xx/t7xx_cldma.c
+@@ -109,7 +109,7 @@ bool t7xx_cldma_tx_addr_is_set(struct t7xx_cldma_hw *hw_info, unsigned int qno)
+ {
+ 	u32 offset = REG_CLDMA_UL_START_ADDRL_0 + qno * ADDR_SIZE;
+ 
+-	return ioread64(hw_info->ap_pdn_base + offset);
++	return ioread64_lo_hi(hw_info->ap_pdn_base + offset);
+ }
+ 
+ void t7xx_cldma_hw_set_start_addr(struct t7xx_cldma_hw *hw_info, unsigned int qno, u64 address,
+@@ -120,7 +120,7 @@ void t7xx_cldma_hw_set_start_addr(struct t7xx_cldma_hw *hw_info, unsigned int qn
+ 
+ 	reg = tx_rx == MTK_RX ? hw_info->ap_ao_base + REG_CLDMA_DL_START_ADDRL_0 :
+ 				hw_info->ap_pdn_base + REG_CLDMA_UL_START_ADDRL_0;
+-	iowrite64(address, reg + offset);
++	iowrite64_lo_hi(address, reg + offset);
+ }
+ 
+ void t7xx_cldma_hw_resume_queue(struct t7xx_cldma_hw *hw_info, unsigned int qno,
+diff --git a/drivers/net/wwan/t7xx/t7xx_hif_cldma.c b/drivers/net/wwan/t7xx/t7xx_hif_cldma.c
+index cc70360364b7..47e4dc9b7b91 100644
+--- a/drivers/net/wwan/t7xx/t7xx_hif_cldma.c
++++ b/drivers/net/wwan/t7xx/t7xx_hif_cldma.c
+@@ -142,7 +142,7 @@ static int t7xx_cldma_gpd_rx_from_q(struct cldma_queue *queue, int budget, bool
+ 				return -ENODEV;
+ 			}
+ 
+-			gpd_addr = ioread64(hw_info->ap_pdn_base + REG_CLDMA_DL_CURRENT_ADDRL_0 +
++			gpd_addr = ioread64_lo_hi(hw_info->ap_pdn_base + REG_CLDMA_DL_CURRENT_ADDRL_0 +
+ 					    queue->index * sizeof(u64));
+ 			if (req->gpd_addr == gpd_addr || hwo_polling_count++ >= 100)
+ 				return 0;
+@@ -321,7 +321,7 @@ static void t7xx_cldma_txq_empty_hndl(struct cldma_queue *queue)
+ 		struct t7xx_cldma_hw *hw_info = &md_ctrl->hw_info;
+ 
+ 		/* Check current processing TGPD, 64-bit address is in a table by Q index */
+-		ul_curr_addr = ioread64(hw_info->ap_pdn_base + REG_CLDMA_UL_CURRENT_ADDRL_0 +
++		ul_curr_addr = ioread64_lo_hi(hw_info->ap_pdn_base + REG_CLDMA_UL_CURRENT_ADDRL_0 +
+ 					queue->index * sizeof(u64));
+ 		if (req->gpd_addr != ul_curr_addr) {
+ 			spin_unlock_irqrestore(&md_ctrl->cldma_lock, flags);
+diff --git a/drivers/net/wwan/t7xx/t7xx_pcie_mac.c b/drivers/net/wwan/t7xx/t7xx_pcie_mac.c
+index 76da4c15e3de..f071ec7ff23d 100644
+--- a/drivers/net/wwan/t7xx/t7xx_pcie_mac.c
++++ b/drivers/net/wwan/t7xx/t7xx_pcie_mac.c
+@@ -78,7 +78,7 @@ static void t7xx_pcie_mac_atr_tables_dis(void __iomem *pbase, enum t7xx_atr_src_
+ 	for (i = 0; i < ATR_TABLE_NUM_PER_ATR; i++) {
+ 		offset = ATR_PORT_OFFSET * port + ATR_TABLE_OFFSET * i;
+ 		reg = pbase + ATR_PCIE_WIN0_T0_ATR_PARAM_SRC_ADDR + offset;
+-		iowrite64(0, reg);
++		iowrite64_lo_hi(0, reg);
+ 	}
+ }
+ 
+@@ -115,17 +115,17 @@ static int t7xx_pcie_mac_atr_cfg(struct t7xx_pci_dev *t7xx_dev, struct t7xx_atr_
+ 
+ 	reg = pbase + ATR_PCIE_WIN0_T0_TRSL_ADDR + offset;
+ 	value = cfg->trsl_addr & ATR_PCIE_WIN0_ADDR_ALGMT;
+-	iowrite64(value, reg);
++	iowrite64_lo_hi(value, reg);
+ 
+ 	reg = pbase + ATR_PCIE_WIN0_T0_TRSL_PARAM + offset;
+ 	iowrite32(cfg->trsl_id, reg);
+ 
+ 	reg = pbase + ATR_PCIE_WIN0_T0_ATR_PARAM_SRC_ADDR + offset;
+ 	value = (cfg->src_addr & ATR_PCIE_WIN0_ADDR_ALGMT) | (atr_size << 1) | BIT(0);
+-	iowrite64(value, reg);
++	iowrite64_lo_hi(value, reg);
+ 
+ 	/* Ensure ATR is set */
+-	ioread64(reg);
++	ioread64_lo_hi(reg);
+ 	return 0;
+ }
+ 
+-- 
+2.39.2
