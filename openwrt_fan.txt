@@ -122,6 +122,11 @@ more pwm-mediatek.c.6.6patch:
  };
  MODULE_DEVICE_TABLE(of, pwm_mediatek_of_match);
 
+
+or copy file from my github: https://github.com/drozdi70/bananapi_bpir4
+
+and cop to cp 0002-pwm-mediatek-6.6.patch ~/openwrt/target/linux/mediatek/patches-6.6/
+
 ========================
 patching process with new image creation:
 
