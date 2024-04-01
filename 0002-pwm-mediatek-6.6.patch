@@ -1,0 +1,102 @@
+Index: linux-6.6.23/drivers/pwm/pwm-mediatek.c
+===================================================================
+--- linux-6.6.23.orig/drivers/pwm/pwm-mediatek.c
++++ linux-6.6.23/drivers/pwm/pwm-mediatek.c
+@@ -285,95 +285,15 @@ static int pwm_mediatek_probe(struct pla
+ 	return 0;
+ }
+ 
+-static const struct pwm_mediatek_of_data mt2712_pwm_data = {
++static const struct pwm_mediatek_of_data mt7988_pwm_data = {
+ 	.num_pwms = 8,
+ 	.pwm45_fixup = false,
+ 	.has_ck_26m_sel = false,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt6795_pwm_data = {
+-	.num_pwms = 7,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = false,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7622_pwm_data = {
+-	.num_pwms = 6,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = true,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7623_pwm_data = {
+-	.num_pwms = 5,
+-	.pwm45_fixup = true,
+-	.has_ck_26m_sel = false,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7628_pwm_data = {
+-	.num_pwms = 4,
+-	.pwm45_fixup = true,
+-	.has_ck_26m_sel = false,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7629_pwm_data = {
+-	.num_pwms = 1,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = false,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt7981_pwm_data = {
+-	.num_pwms = 3,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = true,
+ 	.reg_offset = mtk_pwm_reg_offset_v2,
+ };
+ 
+-static const struct pwm_mediatek_of_data mt7986_pwm_data = {
+-	.num_pwms = 2,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = true,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt8183_pwm_data = {
+-	.num_pwms = 4,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = true,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt8365_pwm_data = {
+-	.num_pwms = 3,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = true,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+-static const struct pwm_mediatek_of_data mt8516_pwm_data = {
+-	.num_pwms = 5,
+-	.pwm45_fixup = false,
+-	.has_ck_26m_sel = true,
+-	.reg_offset = mtk_pwm_reg_offset_v1,
+-};
+-
+ static const struct of_device_id pwm_mediatek_of_match[] = {
+-	{ .compatible = "mediatek,mt2712-pwm", .data = &mt2712_pwm_data },
+-	{ .compatible = "mediatek,mt6795-pwm", .data = &mt6795_pwm_data },
+-	{ .compatible = "mediatek,mt7622-pwm", .data = &mt7622_pwm_data },
+-	{ .compatible = "mediatek,mt7623-pwm", .data = &mt7623_pwm_data },
+-	{ .compatible = "mediatek,mt7628-pwm", .data = &mt7628_pwm_data },
+-	{ .compatible = "mediatek,mt7629-pwm", .data = &mt7629_pwm_data },
+-	{ .compatible = "mediatek,mt7981-pwm", .data = &mt7981_pwm_data },
+-	{ .compatible = "mediatek,mt7986-pwm", .data = &mt7986_pwm_data },
+-	{ .compatible = "mediatek,mt8183-pwm", .data = &mt8183_pwm_data },
+-	{ .compatible = "mediatek,mt8365-pwm", .data = &mt8365_pwm_data },
+-	{ .compatible = "mediatek,mt8516-pwm", .data = &mt8516_pwm_data },
++	{ .compatible = "mediatek,mt7988-pwm", .data = &mt7988_pwm_data },
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(of, pwm_mediatek_of_match);
