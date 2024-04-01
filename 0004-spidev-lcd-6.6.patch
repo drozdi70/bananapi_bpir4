@@ -1,0 +1,22 @@
+Index: linux-6.6.23/drivers/spi/spidev.c
+===================================================================
+--- linux-6.6.23.orig/drivers/spi/spidev.c
++++ linux-6.6.23/drivers/spi/spidev.c
+@@ -714,6 +714,8 @@ static const struct spi_device_id spidev
+ 	{ .name = "spi-authenta" },
+ 	{ .name = "em3581" },
+ 	{ .name = "si3210" },
++	{ .name = "ads7846" },
++	{ .name = "st7789v" },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(spi, spidev_spi_ids);
+@@ -742,6 +744,8 @@ static const struct of_device_id spidev_
+ 	{ .compatible = "semtech,sx1301", .data = &spidev_of_check },
+ 	{ .compatible = "silabs,em3581", .data = &spidev_of_check },
+ 	{ .compatible = "silabs,si3210", .data = &spidev_of_check },
++	{ .compatible = "ti,ads7846", .data = &spidev_of_check },
++	{ .compatible = "sitronix,st7789v", .data = &spidev_of_check },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, spidev_dt_ids);
