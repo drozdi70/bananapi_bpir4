@@ -1,0 +1,357 @@
+My router BananaPi BPI-R4 hardware config:
+
+- Nvme disc 256GB
+- modem 5g FM350GL
+- Wifi 6E card: MT7916AN
+- wifi 7 card: MT7925M22
+
+I also attach in the kernel an ath12k module.
+
+--------------------------------------------------------------------
+
+I step
+
+git clone -b 6.11-rc https://github.com/frank-w/BPI-Router-Linux.git
+
+
+sudo mkdir -p /media/root/BPI-BOOT
+sudo mkdir -p /media/root/BPI-ROOT
+sudo mount  /dev/disk/by-label/BPI-BOOT /media/root/BPI-BOOT
+sudo mount  /dev/disk/by-label/BPI-ROOT /media/root/BPI-ROOT
+
+cd BPI-Router-Linux
+
+sed -i s/"board=bpi-r2"/"#board=bpi-r2"/g build.conf
+sed -i s/"#board=bpi-r4"/"board=bpi-r4"/g build.conf
+
+./build.sh importconfig
+cp ../.config ../build/
+git config --global --add safe.directory $PWD
+
+# ./build.sh config to add more drivers
+
+!! fix ath12k
+./drivers/net/wireless/ath/ath12k/pci.c
+277 add
+/* Prevent startup crash on BPI-Rx */
+
+return;
+
+./build.sh
+
+option 1 - pack
+
+
+--------------------------------------------------------------------
+
+II step
+
+cd ..
+git clone https://github.com/frank-w/BPI-Router-Images
+
+cd BPI-Router-Images
+    
+Copy your kernelfile (bpi-r4_6.11.0-rc1.tar.gz) from SD directory of Part 1 into BPI-Router-Images directory
+cp ../SD/bpi-r4_6.11.0-rc1.tar.gz .
+
+nano sourcefiles_bpi-r4.conf
+skipkerneldownload=1
+kernelfile=bpi-r4_6.11.0-rc1.tar.gz
+
+    
+changes in buildchroot.sh (adding trixie):
+distro_debian=(buster bullseye bookworm trixie)
+
+
+in buildimg.sh:
+kernel="6.11"
+..
+if [[  "$board" == "bpi-r4" ]]; then
+        kernel="6.11" #r4 does not have LTS support yet
+fi
+
+
+sudo ./buildimg.sh bpi-r4 trixie
+
+write the image to the SD card 
+
+
+--------------------------------------------------------------------
+
+
+III step
+
+boot BPI-R4 with image from step II
+
+Boot roouter from SD card (jumpers: DOWN DOWN to start from SD CARD)
+root password: bananapi
+
+root@bpi-r4:~# uname -r
+6.11.0-rc1-bpi-r4
+
+
+root@bpi-r4:/lib/firmware/mediatek# dmesg |grep 791
+[    2.943791] pcieport 0003:00:00.0: enabling device (0000 -> 0002)
+[    3.791246] pci_bus 0002:00: fixups for bus
+[   17.521587] mt7915e 0000:01:00.0: vgaarb: pci_notify
+[   17.526637] mt7915e 0000:01:00.0: assign IRQ: got 132
+[   17.531695] mt7915e 0000:01:00.0: enabling device (0000 -> 0002)
+[   17.537745] mt7915e 0000:01:00.0: enabling bus mastering
+[   17.654073] mt7915e 0000:01:00.0: HW/SW Version: 0x8a108a10, Build Time: 20230202144915a
+[   17.767715] mt7915e 0000:01:00.0: WM Firmware Version: ____000000, Build Time: 20230202145005
+[   17.819170] mt7915e 0000:01:00.0: WA Firmware Version: DEV_000000, Build Time: 20230202143332
+[   17.985584] mt7915e 0000:01:00.0: registering led 'mt76-phy0'
+[   17.995091] mt7915e 0000:01:00.0: registering led 'mt76-phy1'
+[   26.237267] mt7915e 0000:01:00.0: vgaarb: pci_notify
+root@bpi-r4:/lib/firmware/mediatek# dmesg |grep 792
+[    1.807926] ubi0: max/mean erase counter: 2/1, WL threshold: 4096, image sequence number: 0
+[    5.899505] pci 0001:01:00.0: [14c3:7925] type 00 class 0x028000 PCIe Endpoint
+[   17.611910] mt7925e 0001:01:00.0: vgaarb: pci_notify
+[   17.616923] mt7925e 0001:01:00.0: assign IRQ: got 135
+[   17.630383] mt7925e 0001:01:00.0: enabling device (0000 -> 0002)
+[   17.636430] mt7925e 0001:01:00.0: enabling bus mastering
+[   17.716294] mt7925e 0001:01:00.0: ASIC revision: 79250000
+[   17.808446] mt7925e 0001:01:00.0: vgaarb: pci_notify
+[   17.850569] mt7925e 0001:01:00.0: HW/SW Version: 0x8a108a10, Build Time: 20231227093012a
+[   18.210391] mt7925e 0001:01:00.0: WM Firmware Version: ____000000, Build Time: 20231227093232
+
+
+
+root@bpi-r4:~# lsmod |grep mt79
+mt7925e                16384  0
+mt7925_common          73728  1 mt7925e
+mt7915e               159744  0
+mt792x_lib             40960  2 mt7925e,mt7925_common
+mt76_connac_lib        53248  4 mt792x_lib,mt7925e,mt7915e,mt7925_common
+mt76                   86016  5 mt792x_lib,mt7925e,mt7915e,mt76_connac_lib,mt7925_common
+mac80211              815104  6 mt792x_lib,mt76,ath12k,mt7915e,mt76_connac_lib,mt7925_common
+cfg80211              806912  6 mt76,ath12k,mt7915e,mac80211,mt76_connac_lib,mt7925_common
+
+
+#NVMe disc config
+
+add to /etc/fstab to mount NVme disc under/nvme:
+/dev/nvme0n1p1  /nvme   ext4    defaults        0       0
+
+
+#Fan trigger fix to add in /etc/rc.local:
+
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_4_temp
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_3_temp
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_2_temp
+echo 40000 > /sys/class/thermal/thermal_zone0/trip_point_1_temp
+
+
+#FM350GL router config
+
+root@bpi-r4:~# more /root/fm350glpci.sh
+#!/bin/sh
+#
+# FM350-GL modem initilization and config
+#
+# DroZDi 10.07.2024
+#
+cd /root
+rm my_ip.txt
+rm my_gate.txt
+#
+# Assigning ISP IP address to the FM350GL interface
+#
+mmcli -m 0 --set-allowed-modes='5g'
+sleep 40
+## sms_tool -d /dev/wwan0at0 at "AT+E5GOPT=7" #NSA+SA
+mmcli -m 0 --simple-connect="apn='internet'"
+sleep 5
+mmcli -b 1 |grep -i address > my_ip.txt
+mmcli -b 1 |grep -i gateway > my_gate.txt
+
+fm350gl_ip_address=`cat my_ip.txt |grep -v ^$ | awk -F ' ' '{print $3}' | tail -n 1`
+fm350gl_ip_gate=`cat my_gate.txt |grep -v ^$ | awk -F ' ' '{print $3}' | tail -n 1`
+ip link set wwan0 up
+ip addr add $fm350gl_ip_address/32 dev wwan0
+ip link set dev wwan0 arp off
+ip link set dev wwan0 mtu 1500
+ip route add default dev wwan0 metric 200
+exit 0
+
+chmod 755 /root/fm350glpci.sh
+
+add to /etc/rc.local:
+
+#Fm350gl modem start
+/root/fm350glpci.sh
+
+systemctl enable rc-local
+systemctl start rc-local.service
+
+!!!
+Modem wont work by now as nmcli is not installed. Fix in next step.
+!!!
+
+
+Ath12k firmware installation:
+cd /nvme/work
+.cp -pR ath12k /lib/firmware
+
+
+
+# Some updates + soft installation after connection to the internet ;)
+rm /etc/network/interfaces.d/eth0
+rm /etc/network/interfaces.d/wlan1
+
+
+apt install ntp -y
+timedatectl set-timezone Europe/Warsaw
+
+
+vi /etc/systemd/resolved.conf
+[Resolve]
+DNS=8.8.8.8 1.1.1.1
+
+
+systemctl restart systemd-resolved
+sudo resolvectl status
+
+
+
+apt update
+apt upgrade
+
+ apt install net-tools -y
+ apt install wireless-tools -y
+ apt install iwd lshw -y 
+ apt install snapd git -y
+ apt install libpci-dev -y
+ apt install libusb-dev -y 
+ apt install usbutils -y
+ apt install pciutils -y
+ apt install unzip -y
+ apt install modemmanager -y
+ apt install libqrtr-dev libqrtr-glib-dev libqrtr1 qrtr-tools binutils i2c-tools qrtr-tools firmware-qcom-soc -y
+ apt install libmbim-utils bash lm-sensors -y
+ apt install dnsmasq -y
+ apt-get install libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libssl-dev -y
+ apt-get install libdbus-1-dev git pkg-config build-essential macchanger net-tools python3-venv -y
+ apt install rfkill -y
+apt install libbluetooth3  libndp0  libpcap0.8t64  libteamdctl0  ppp -y
+ apt install libteam-utils  iptables firewalld -y
+ apt install network-manager -y
+
+
+# Hostapd new installation
+
+cd work (any working directory)
+
+git clone git://w1.fi/hostap.git
+
+cd hostap/hostapd
+cp defconfig .config
+uncomment IEEE80211AC/AX/BE in .config!!! +CONFIG_ACS=y +IEEE80211R +CONFIG_DRIVER_NL80211_QCA +SAE +SAE_PK
+make -j 2
+
+mv /usr/sbin/hostapd_cli /usr/sbin/hostapd_cli.old
+mv /usr/sbin/hostapd /usr/sbin/hostapd.old
+cp hostapd /usr/sbin/
+cp hostapd_cli /usr/sbin/
+
+
+echo "options cfg80211 ieee80211_regdom=PL"| tee /etc/modprobe.d/cfg80211.conf
+ 
+
+# Wifi card check (mt7925 as phy2/wlan2 )
+# multiple wifi cards can be recognized by lshw -C network
+
+  *-network:8
+       description: Wireless interface
+       physical id: e
+       bus info: pci@0001:01:00.0
+       logical name: uap0
+       serial: ce:3d:89:bb:71:30
+       capabilities: ethernet physical wireless
+       configuration: broadcast=yes driver=mt7925e driverversion=6.10.0-rc1-bpi-r4 firmware=____000000-20231227093232 ip=192.168.10.1 link=no multicast=yes wireless=IEEE 802.11
+
+iwconfig (wlan2/uap0) -> iw dev (phy#2) -> iw phy2 info
+
+check avaliable channels:
+iw  phy phy2 channels
+
+check capability card for ht_capab/vht_capab:
+iw list 
+
+
+
+/etc/hostapd/hostapd.conf:
+
+interface=ap0
+##bridge=lanbr0
+driver=nl80211
+
+#Debug
+#logger_syslog=-1
+logger_syslog_level=0
+#logger_stdout=-1
+logger_stdout_level=0
+
+
+# Control interface
+ctrl_interface=/var/run/hostapd
+ctrl_interface_group=0
+
+ssid=AP7G
+macaddr_acl=0
+ignore_broadcast_ssid=0
+country_code=US
+
+wmm_enabled=1
+hw_mode=a
+channel=157
+ieee80211h=0
+ieee80211w=1
+ieee80211d=1
+ieee80211ax=1
+hu_oper_khwidth=1
+#he_oper_centr_freq_seg0_idx=44
+he_su_beamformer=1
+he_su_beamformee=1
+he_mu_beamformer=1
+he_6ghz_max_ampdu_len_exp=7
+ht_capab=[RXLDPC][HT40+][SHORT-GI-20][SHORT-GI-40][GF][TX-STBC][RX-STBC1][MAX-AMSDU-7935][DSSS_CCK-40][SU-BEAMFORMEE]
+vht_capab=[RXLDPC][VHT160][HT40+][SHORT-GI-20][SHORT-GI-40][SHORT-GI-80][[HORT-GI-160][TX-STBC][RX-STBC12][MAX-AMSDU-7935][DSSS_CCK-40][MAX-MPDU-11454][TX-STBC-2BY1][SU-BEAMFORMEE][MU-BEAMFORMEE][RX-ANTENNA-PATTERN][TX-ANTENNA-PATTERN][MAX-A-MPDU-LEN-EXP7]
+
+#security
+wpa=2
+wpa_passphrase=xxxx
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP CCMP
+
+########################### WIFI 7
+ieee80211be=1
+disable_11be=0
+##mld_ap=1
+eht_bw320_offset=0
+eht_su_beamformer=1
+eht_su_beamformee=1
+eht_mu_beamformer=1
+
+
+in /etc/dnsmasq.conf:
+listen-address=::1,127.0.0.1,192.168.10.1
+interface=ap0              # Use the interface uap0 for DHCP
+###no-dhcp-interface=wlan2     # Disable DHCP on wlan2
+server=8.8.8.8
+server=8.8.4.4
+server=1.1.1.1
+dhcp-range=192.168.10.10,192.168.10.100,72h  # Set the DHCP range and lease time
+
+
+systemctl disable hostapd.service
+systemctl disable wpa_supplicant.service
+
+add to /etc/rc.local script:
+/usr/sbin/iw reg set US
+/usr/sbin/iw dev wlan2 interface add ap0 type __ap
+/usr/bin/sleep 5
+/usr/bin/ip addr add 192.168.10.1/24 dev ap0
+/usr/bin/ip link set dev ap0 up
+/usr/sbin/hostapd -B /etc/hostapd/hostapd.conf
+
