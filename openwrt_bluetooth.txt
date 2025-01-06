@@ -1,0 +1,285 @@
+https://openwrt.org/docs/guide-user/hardware/bluetooth/bluetooth_presence_detection
+https://openwrt.org/docs/guide-user/hardware/bluetooth/bluetooth.tether?s[]=bluez
+
+
+openwrt menuconfig
+
+kmod-bluetooth 
+kmod-usb-core 
+kmod-usb3
+usbutils
+
+    kmod-input-uinput
+    bluez-daemon
+    bluez-utils
+    dbus
+    dbus-utils
+bluez-deamon
+ bluez-libs bluez-utils
+
+
+apk update
+apk add bluez bluez-libs bluez-utils
+
+reboot
+
+apk add kmod-usb-uhci ??
+
+
+in /etc/rc.local:
+
+service dbus start
+service bluetoothd start
+/usr/bin/hciconfig hci0 down
+echo -e "select 24:19:72:BB:ED:3A\npair 7C:2A:DB:66:49:48" > bluetoothctl
+
+
+
+root@BPI-R4:~# hciconfig -a
+hci1:   Type: Primary  Bus: USB
+        BD Address: 24:19:72:BB:ED:3A  ACL MTU: 1024:8  SCO MTU: 240:4
+        UP RUNNING
+        RX bytes:4230 acl:0 sco:0 events:134 errors:0
+        TX bytes:2528 acl:0 sco:0 commands:112 errors:0
+        Features: 0xff 0xfe 0x0f 0xfe 0xd8 0x3f 0x5b 0x87
+        Packet type: DM1 DM3 DM5 DH1 DH3 DH5 HV1 HV2 HV3
+        Link policy: RSWITCH HOLD SNIFF
+        Link mode: PERIPHERAL ACCEPT
+        Name: 'BlueZ 5.72' >>>> default name
+        Class: 0x000000
+        Service Classes: Unspecified
+        Device Class: Miscellaneous,
+        HCI Version: 5.3 (0xc)  Revision: 0x0
+        LMP Version: 5.3 (0xc)  Subversion: 0x43fb
+        Manufacturer: Qualcomm (29)
+
+hci0:   Type: Primary  Bus: USB
+        BD Address: 4C:82:A9:9C:3A:72  ACL MTU: 1024:8  SCO MTU: 240:4
+        UP RUNNING
+        RX bytes:1487 acl:0 sco:0 events:100 errors:0
+        TX bytes:2407 acl:0 sco:0 commands:100 errors:0
+        Features: 0xff 0xfe 0x0f 0xfe 0xd8 0x3f 0x5b 0x87
+        Packet type: DM1 DM3 DM5 DH1 DH3 DH5 HV1 HV2 HV3
+        Link policy: RSWITCH HOLD SNIFF
+        Link mode: PERIPHERAL ACCEPT
+        Name: 'BlueZ 5.72' >>>> default name
+        Class: 0x000000
+        Service Classes: Unspecified
+        Device Class: Miscellaneous,
+        HCI Version: 5.3 (0xc)  Revision: 0x0
+        LMP Version: 5.3 (0xc)  Subversion: 0x43fb
+        Manufacturer: Qualcomm (29)
+
+hciconfig hci0 name 'BPI-R4'
+hciconfig hci1 name 'BPI-R4bis'
+
+
+or
+
+root@BPI-R4:/etc/config# cat /etc/bluetooth/main.conf |grep -i name |grep -v ^#
+Name = BPI-R4
+
+or
+
+/var/lib/bluetooth/MAC_ADDRESS/settings
+Alias or name
+
+service bluetoothd restart
+
+
+
+
+
+bluetoothctl show
+
+Controller 4C:82:A9:9C:3A:72 (public)
+        Manufacturer: 0x001d (29)
+        Version: 0x0c (12)
+        Name: BPI-R4
+        Alias: BPI-R4
+        Class: 0x00000000 (0)
+        Powered: yes
+        Discoverable: no
+        DiscoverableTimeout: 0x000000b4 (180)
+        Pairable: yes
+        UUID: Generic Attribute Profile (00001801-0000-1000-8000-00805f9b34fb)
+        UUID: Generic Access Profile    (00001800-0000-1000-8000-00805f9b34fb)
+        UUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)
+        UUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)
+        UUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)
+        UUID: Device Information        (0000180a-0000-1000-8000-00805f9b34fb)
+        Modalias: usb:v1D6Bp0246d0548
+        Discovering: no
+        Roles: central
+        Roles: peripheral
+Advertising Features:
+        ActiveInstances: 0x00 (0)
+        SupportedInstances: 0x10 (16)
+        SupportedIncludes: tx-power
+        SupportedIncludes: appearance
+        SupportedIncludes: local-name
+        SupportedSecondaryChannels: 1M
+        SupportedSecondaryChannels: 2M
+        SupportedSecondaryChannels: Coded
+
+bluetoothctl discoverable on
+bluetoothctl pairable on
+
+
+root@BPI-R4:/var/lib/bluetooth/24:19:72:BB:ED:3A# bluetoothctl show 4C:82:A9:9C:3A:72
+Controller 4C:82:A9:9C:3A:72 (public)
+        Manufacturer: 0x001d (29)
+        Version: 0x0c (12)
+        Name: BPI-R4
+        Alias: BPI-R4
+        Class: 0x00000000 (0)
+        Powered: yes
+        Discoverable: no
+        DiscoverableTimeout: 0x000000b4 (180)
+        Pairable: yes
+        UUID: Generic Attribute Profile (00001801-0000-1000-8000-00805f9b34fb)
+        UUID: Generic Access Profile    (00001800-0000-1000-8000-00805f9b34fb)
+        UUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)
+        UUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)
+        UUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)
+        UUID: Device Information        (0000180a-0000-1000-8000-00805f9b34fb)
+        Modalias: usb:v1D6Bp0246d0548
+        Discovering: no
+        Roles: central
+        Roles: peripheral
+Advertising Features:
+        ActiveInstances: 0x00 (0)
+        SupportedInstances: 0x10 (16)
+        SupportedIncludes: tx-power
+        SupportedIncludes: appearance
+        SupportedIncludes: local-name
+        SupportedSecondaryChannels: 1M
+        SupportedSecondaryChannels: 2M
+        SupportedSecondaryChannels: Coded
+root@BPI-R4:/var/lib/bluetooth/24:19:72:BB:ED:3A# bluetoothctl show 24:19:72:BB:ED:3A
+Controller 24:19:72:BB:ED:3A (public)
+        Manufacturer: 0x001d (29)
+        Version: 0x0c (12)
+        Name: BPI-R4
+        Alias: BPI-R4
+        Class: 0x00000000 (0)
+        Powered: no
+        Discoverable: no
+        DiscoverableTimeout: 0x000000b4 (180)
+        Pairable: no
+        UUID: Generic Attribute Profile (00001801-0000-1000-8000-00805f9b34fb)
+        UUID: Generic Access Profile    (00001800-0000-1000-8000-00805f9b34fb)
+        UUID: PnP Information           (00001200-0000-1000-8000-00805f9b34fb)
+        UUID: A/V Remote Control Target (0000110c-0000-1000-8000-00805f9b34fb)
+        UUID: A/V Remote Control        (0000110e-0000-1000-8000-00805f9b34fb)
+        UUID: Device Information        (0000180a-0000-1000-8000-00805f9b34fb)
+        Modalias: usb:v1D6Bp0246d0548
+        Discovering: no
+        Roles: central
+        Roles: peripheral
+Advertising Features:
+        ActiveInstances: 0x00 (0)
+        SupportedInstances: 0x10 (16)
+        SupportedIncludes: tx-power
+        SupportedIncludes: appearance
+        SupportedIncludes: local-name
+        SupportedSecondaryChannels: 1M
+        SupportedSecondaryChannels: 2M
+        SupportedSecondaryChannels: Coded
+
+root@BPI-R4:~# hcitool -i hci0 scan --flush
+Scanning ...
+root@BPI-R4:~# hcitool -i hci1 scan --flush
+Scanning ...
+        7C:2A:DB:66:49:48       RN9
+
+in /etc/bluetooth/main.conf
+Class = 0x000100
+
+
+in my case I need to change default controller
+
+root@BPI-R4:~# bluetoothctl
+Agent registeredct to bluetoothd...
+
+[bluetooth]# list
+Controller 4C:82:A9:9C:3A:72 BPI-R4 [default] >> hci0
+Controller 24:19:72:BB:ED:3A BPI-R4 >> hci1
+[bluetooth]# select 24:19:72:BB:ED:3A
+Controller 24:19:72:BB:ED:3A BPI-R4 [default]
+[bluetooth]# list
+Controller 4C:82:A9:9C:3A:72 BPI-R4
+Controller 24:19:72:BB:ED:3A BPI-R4 [default]
+
+!!! only scripting like this as no way to change default controller in bluetooth!!!!
+echo -e "select 24:19:72:BB:ED:3A\npair 7C:2A:DB:66:49:48" > bluetoothctl
+
+
+
+root@BPI-R4:~# bluetoothctl
+Agent registeredct to bluetoothd...
+[bluetooth]# select 24:19:72:BB:ED:3A
+Controller 24:19:72:BB:ED:3A BPI-R4 [default]
+[bluetooth]# devices
+Device 7C:2A:DB:66:49:48 RN9
+
+
+
+
+orangepi@orangepi5:~/work$ more bluetooth_restart.sh
+#!/usr/bin/bash
+sudo systemctl stop bluetooth.service
+sudo systemctl start bluetooth.service
+/usr/bin/hciconfig hci1 down
+### RN9
+bluetoothctl trust 7C:2A:DB:66:49:48
+bluetoothctl disconnect 7C:2A:DB:66:49:48
+sleep 5
+bluetoothctl connect 7C:2A:DB:66:49:48
+
+
+/root/check_presence_bt.sh
+
+#!/bin/sh
+# Bluetooth Presence Detection
+# By Lovisolo P.M. - parknat12@yahoo.com
+# my OpenWrt, Raspberry and Linux, personal forum: http://forum.49v.com
+#
+while :
+do
+# scan for bluetooth devices and put the result into a variable:
+c=$(/usr/bin/hcitool scan)
+#
+# check for a specific MAC ADDRESS presence:
+if [ `echo $c | grep -c "30:21:15:13:9C:29" ` -gt 0 ]
+then
+/bin/echo 'Device detected, relay is ON'
+/bin/echo 1 > /sys/class/gpio/gpio1/value # you may need to change this depending on your router
+# you may add here a command or a script to be executed when the device is available
+else
+/bin/echo 'Device is off or out of range, relay is OFF'
+/bin/echo 0 > /sys/class/gpio/gpio1/value # you may need to change this depending on your router
+# you may add here a command or a script to be executed when the device is unavailable
+fi
+done
+# eof
+
+
+ give the right permissions to the script:
+
+chmod 755 /root/check_presence_bt.sh
+
+test it:
+
+/bin/sh /root/check_presence_bt.sh
+
+to launch the scan every minute, edit crontab:
+
+nano /etc/crontabs/root
+
+and insert the following:
+
+*/1 * * * * /bin/sh /root/check_presence_bt.sh
+
+
+
