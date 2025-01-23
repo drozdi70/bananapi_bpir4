@@ -1,0 +1,115 @@
+GPIO BANANA PI BPI-R4 pinout:
+
+1
+
+
+Pins	GPIO
+	
+8	GPIO59/JTAG_JTDO/UART1_TX/UART2_TX
+10	GPIO58/JTAG_JTDI/UART1_RX/UART2_RX
+
+
+Modem GPS pinout HGLRC M100-5883 M10 modul GPS
+
+5V 	-> 4/2
+GND	-> 6/14
+RX	-> 8
+TX	-> 10 
+
+
+dts (probably not needed but I add)
+
+&uart1 {
+        status = "okay";
+};
+
+&uart2 {
+        status = "okay";
+};
+
+
+make menuconfig:
+
+CONFIG_PACKAGE_libupm-nmea_gps=y
+CONFIG_PACKAGE_libupm-nmea_gps-python3=y
+CONFIG_PACKAGE_libgps=y
+CONFIG_PACKAGE_gpsd=y
+CONFIG_PACKAGE_gpsd-clients=y
+CONFIG_PACKAGE_gpsd-utils=y
+CONFIG_PACKAGE_ugps=y
+
+
+and compile the image
+
+
+root@BPI-R4:~# ls -ltr /dev/tty*
+crw-rw----    1 root     dialout     4,  66 Jan  1  1970 /dev/ttyS2
+crw-rw----    1 root     dialout     4,  65 Jan  1  1970 /dev/ttyS1
+crw-------    1 root     root        4,  64 Jan 15 20:22 /dev/ttyS0
+crw-rw-rw-    1 root     root        5,   0 Jan 15 20:22 /dev/tty
+
+root@BPI-R4:~# dmesg |grep -i serial
+[    0.059687] Serial: 8250/16550 driver, 3 ports, IRQ sharing disabled
+[    0.080697] 11000000.serial: ttyS0 at MMIO 0x11000000 (irq = 99, base_baud = 2500000) is a ST16650V2  >>>> uart0
+[    1.096951] 11000100.serial: ttyS1 at MMIO 0x11000100 (irq = 100, base_baud = 2500000) is a ST16650V2 >>>> uart1
+[    1.126818] 11000200.serial: ttyS2 at MMIO 0x11000200 (irq = 101, base_baud = 2500000) is a ST16650V2 >>>> uart2 >>> our GPS
+[   15.225285] usbcore: registered new interface driver usbserial_generic
+[   15.231878] usbserial: USB Serial support registered for generic
+[   17.258653] usbserial: USB Serial support registered for GSM modem (1-port)
+[   17.295136] usbcore: registered new interface driver qcserial
+
+
+
+
+sudo reboot
+
+not needed
+###service stop serial-getty@ttyS2.service
+###service disable serial-getty@ttyS2.service 
+
+root@BPI-R4:~# uci show gpsd
+gpsd.core=gpsd
+gpsd.core.enabled='1'
+gpsd.core.device='/dev/ttyS2'
+gpsd.core.port='2947'
+gpsd.core.listen_globally='1'
+
+
+chmod 444 /etc/config/gpsd
+
+
+service gpsd stop
+service gpsd start
+
+# apk add coreutils-stty
+
+
+
+
+!!! some GPS mode works only on fixed baud speed, for example M100-8553 115200 but Betian BN-880Q 9600 we can change tty speed as below
+! change baud rate
+stty -F /dev/ttyS2 speed 115200
+! check speed
+stty < /dev/ttyS2
+
+cat /proc/tty/driver/serial >>> we can see the trafffic on ports
+
+root@BPI-R4:~# cat /proc/tty/driver/serial
+serinfo:1.0 driver revision:
+0: uart:ST16650V2 mmio:0x11000000 irq:99 tx:28130 rx:4156 fe:114 brk:6 oe:22 RTS|CTS|DTR|DSR|CD|RI
+1: uart:ST16650V2 mmio:0x11000100 irq:100 tx:0 rx:0 DSR|CD|RI
+2: uart:ST16650V2 mmio:0x11000200 irq:101 tx:1649 rx:637156 fe:45741 brk:69884 oe:24 RTS|DTR|DSR|CD|RI >>> those values should change
+
+
+sudo gpsmon
+sudo cgps -s
+sudo cgps -um
+
+
+
+========================
+
+
+cat /proc/tty/driver/serial
+setserial /dev/ttyS6 baud_base 1843200 ###> 38400
+cat /proc/tty/driver/serial
