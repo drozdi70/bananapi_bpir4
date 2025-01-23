@@ -106,6 +106,12 @@ sudo cgps -s
 sudo cgps -um
 
 
+/etc/rc.local:
+
+#GPS M100 8553 modem
+service gpsd stop
+stty -F /dev/ttyS2 speed 115200
+service gpsd start
 
 ========================
 
